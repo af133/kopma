@@ -54,10 +54,10 @@ class _CreatePageState extends State<CreatePage> {
 
       try {
         await _productService.addProduct(newProduct, _image!);
-        if (mounted) {
-          Navigator.pop(context);
-        }
+        if (!mounted) return;
+        Navigator.pop(context);
       } catch (e) {
+        if (!mounted) return;
         // Handle error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal menambahkan produk: $e')),
