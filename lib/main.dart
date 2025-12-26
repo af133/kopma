@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
           seedColor: primaryColor,
           primary: primaryColor,
           secondary: accentColor,
-          background: backgroundColor,
+          surface: backgroundColor,
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: backgroundColor,
