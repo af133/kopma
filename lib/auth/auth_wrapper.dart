@@ -12,21 +12,22 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasData) {
-          // Menggunakan pushReplacement untuk menghindari loop redirect
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const DashboardPage()),
-            );
-          });
-          // Return a placeholder while navigation occurs.
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+        // Periksa status koneksi stream
+        if (snapshot.connectionState == ConnectionState.active) {
+          final User? user = snapshot.data;
+          // Jika tidak ada data user, tampilkan halaman Login
+          if (user == null) {
+            return const LoginPage();
+          }
+          // Jika ada data user, tampilkan halaman Dashboard
+          return const DashboardPage();
         } else {
-          return const LoginPage();
+          // Selagi stream menunggu koneksi awal, tampilkan loading
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
       },
     );

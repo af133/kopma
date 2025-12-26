@@ -6,7 +6,7 @@ import '../models/product.dart';
 
 class ProductService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final _cloudinary = CloudinaryPublic('dcyy8h12d', 'ml_default');
+  final _cloudinary = CloudinaryPublic('ds62ywc1c', 'upload_kopma');
   final _picker = ImagePicker();
 
   // Get a stream of products

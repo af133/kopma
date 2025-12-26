@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/views/products/index_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -10,7 +11,15 @@ class DashboardPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Dashboard Koperasi', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.brown[700],
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.brown[700]!, Colors.brown[900]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 4,
         actions: [
           IconButton(
@@ -23,59 +32,83 @@ class DashboardPage extends StatelessWidget {
         ],
       ),
       backgroundColor: Colors.brown[50],
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            /// RINGKASAN KEUANGAN
-            Row(
-              children: const [
-                Expanded(child: _InfoBox(title: 'Pemasukan', value: 'Rp 0', icon: Icons.arrow_upward, iconColor: Colors.green)),
-                SizedBox(width: 12),
-                Expanded(child: _InfoBox(title: 'Pengeluaran', value: 'Rp 0', icon: Icons.arrow_downward, iconColor: Colors.red)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const _InfoBox(title: 'Saldo', value: 'Rp 0', icon: Icons.account_balance, iconColor: Colors.blue),
-
-            const SizedBox(height: 24),
-            Text(
-              'Aksi Cepat',
-              style: GoogleFonts.lato(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.brown[800],
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ringkasan Keuangan',
+                style: GoogleFonts.lato(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.brown[800],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-
-            /// QUICK ACTION
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.2,
-              children: const [
-                _ActionButton(
-                  icon: Icons.shopping_cart,
-                  label: 'Penjualan',
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Expanded(child: _InfoBox(title: 'Pemasukan', value: 'Rp 1.250.000', icon: Icons.arrow_circle_up, iconColor: Colors.green)),
+                  SizedBox(width: 16),
+                  Expanded(child: _InfoBox(title: 'Pengeluaran', value: 'Rp 350.000', icon: Icons.arrow_circle_down, iconColor: Colors.red)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _InfoBox(title: 'Saldo Saat Ini', value: 'Rp 900.000', icon: Icons.account_balance_wallet, iconColor: Colors.blue),
+              const SizedBox(height: 32),
+              Text(
+                'Aksi Cepat',
+                style: GoogleFonts.lato(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.brown[800],
                 ),
-                _ActionButton(
-                  icon: Icons.inventory,
-                  label: 'Produk',
-                ),
-                _ActionButton(
-                  icon: Icons.account_balance_wallet,
-                  label: 'Keuangan',
-                ),
-                 _ActionButton(
-                  icon: Icons.people,
-                  label: 'Anggota',
-                ),
-              ],
-            )
-          ],
+              ),
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+                children: [
+                  _ActionButton(
+                    icon: Icons.shopping_cart_checkout,
+                    label: 'Penjualan',
+                    onTap: () {
+                      // Navigate to sales page
+                    },
+                  ),
+                  _ActionButton(
+                    icon: Icons.inventory_2,
+                    label: 'Produk',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ProductIndex()),
+                      );
+                    },
+                  ),
+                  _ActionButton(
+                    icon: Icons.receipt_long,
+                    label: 'Keuangan',
+                    onTap: () {
+                      // Navigate to finance page
+                    },
+                  ),
+                   _ActionButton(
+                    icon: Icons.groups,
+                    label: 'Anggota',
+                    onTap: () {
+                      // Navigate to members page
+                    },
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -96,33 +129,37 @@ class _InfoBox extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.brown[100]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.brown.withAlpha((255 * 0.1).round()),
+            color: Colors.black.withValues(alpha:0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: iconColor, size: 32),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: GoogleFonts.lato(fontSize: 14, color: Colors.brown[700])),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: GoogleFonts.montserrat(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.brown[900],
+          Icon(icon, color: iconColor, size: 36),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.lato(fontSize: 15, color: Colors.brown[800], fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.brown[900],
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -133,32 +170,41 @@ class _InfoBox extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
-  const _ActionButton({required this.icon, required this.label});
+  const _ActionButton({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Ink(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.brown[700],
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [Colors.brown[600]!, Colors.brown[800]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
            boxShadow: [
             BoxShadow(
-              color: Colors.brown.withAlpha((255 * 0.2).round()),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              color: Colors.brown[800]!.withValues(alpha:0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 32),
-            const SizedBox(height: 8),
-            Text(label, style: GoogleFonts.lato(color: Colors.white, fontWeight: FontWeight.bold)),
+            Icon(icon, color: Colors.white, size: 40),
+            const SizedBox(height: 12),
+            Text(
+              label, 
+              textAlign: TextAlign.center,
+              style: GoogleFonts.lato(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)
+            ),
           ],
         ),
       ),
