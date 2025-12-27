@@ -1,0 +1,77 @@
+type User @table {
+  displayName: String!
+  email: String!
+  role: String!
+  createdAt: Timestamp!
+  phoneNumber: String
+  address: String
+  dateOfBirth: Date
+}
+
+type Member @table {
+  user: User
+  memberId: String!
+  fullName: String!
+  joinDate: Date!
+  status: String!
+  address: String
+  profession: String
+  guarantorId: String
+}
+
+type SavingType @table {
+  name: String!
+  description: String!
+  interestRate: Float!
+  createdAt: Timestamp!
+  minimumDeposit: Float
+  withdrawalLimit: Float
+}
+
+type Savings @table {
+  member: Member!
+  savingType: SavingType!
+  currentBalance: Float!
+  createdAt: Timestamp!
+  lastTransactionDate: Timestamp
+}
+
+type LoanType @table {
+  name: String!
+  description: String!
+  interestRate: Float!
+  maxLoanAmount: Float!
+  loanTerm: Int!
+  createdAt: Timestamp!
+  eligibilityCriteria: String
+}
+
+type Loan @table {
+  member: Member!
+  loanType: LoanType!
+  loanAmount: Float!
+  principalAmount: Float!
+  interestAmount: Float!
+  outstandingBalance: Float!
+  loanDate: Date!
+  dueDate: Date!
+  status: String!
+  createdAt: Timestamp!
+  approvalDate: Timestamp
+  disbursementDate: Timestamp
+}
+
+type Transaction @table {
+  user: User!
+  member: Member!
+  savings: Savings
+  loan: Loan
+  transactionType: String!
+  amount: Float!
+  transactionDate: Timestamp!
+  description: String!
+  createdAt: Timestamp!
+  referenceNumber: String
+  sourceAccount: String
+  destinationAccount: String
+}

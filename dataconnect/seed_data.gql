@@ -1,0 +1,138 @@
+mutation CreateSeedData @auth(level: NO_ACCESS) @transaction {
+  loanType_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-01T00:00:00Z",
+      description: "Personal Loan",
+      interestRate: 0.05,
+      loanTerm: 36,
+      maxLoanAmount: 10000.00,
+      name: "Personal"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-01T00:00:00Z",
+      description: "Car Loan",
+      interestRate: 0.03,
+      loanTerm: 60,
+      maxLoanAmount: 20000.00,
+      name: "Car"
+    }
+  ])
+  user_insertMany(data: [
+    {
+      id: "650e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-01T00:00:00Z",
+      displayName: "Demo User 1",
+      email: "demouser1@example.com",
+      role: "member"
+    },
+    {
+      id: "650e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-01T00:00:00Z",
+      displayName: "Demo User 2",
+      email: "demouser2@example.com",
+      role: "member"
+    }
+  ])
+  member_insertMany(data: [
+    {
+      id: "750e8400-e29b-41d4-a716-446655440000",
+      userId: "650e8400-e29b-41d4-a716-446655440000",
+      fullName: "Demo Member 1",
+      joinDate: "2024-04-01",
+      memberId: "MEM001",
+      status: "active"
+    },
+    {
+      id: "750e8400-e29b-41d4-a716-446655440001",
+      userId: "650e8400-e29b-41d4-a716-446655440001",
+      fullName: "Demo Member 2",
+      joinDate: "2024-04-01",
+      memberId: "MEM002",
+      status: "active"
+    }
+  ])
+  loan_insertMany(data: [
+    {
+      id: "850e8400-e29b-41d4-a716-446655440000",
+      loanTypeId: "550e8400-e29b-41d4-a716-446655440000",
+      memberId: "750e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-01T00:00:00Z",
+      dueDate: "2027-04-01",
+      interestAmount: 500.00,
+      loanAmount: 10000.00,
+      loanDate: "2024-04-01",
+      outstandingBalance: 9500.00,
+      principalAmount: 9500.00,
+      status: "active"
+    },
+    {
+      id: "850e8400-e29b-41d4-a716-446655440001",
+      loanTypeId: "550e8400-e29b-41d4-a716-446655440001",
+      memberId: "750e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-01T00:00:00Z",
+      dueDate: "2029-04-01",
+      interestAmount: 300.00,
+      loanAmount: 20000.00,
+      loanDate: "2024-04-01",
+      outstandingBalance: 19700.00,
+      principalAmount: 19700.00,
+      status: "active"
+    }
+  ])
+  savingType_insertMany(data: [
+    {
+      id: "950e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-01T00:00:00Z",
+      description: "Regular Savings Account",
+      interestRate: 0.02,
+      name: "Regular"
+    },
+    {
+      id: "950e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-01T00:00:00Z",
+      description: "Fixed Deposit Account",
+      interestRate: 0.05,
+      name: "Fixed Deposit"
+    }
+  ])
+  savings_insertMany(data: [
+    {
+      id: "a50e8400-e29b-41d4-a716-446655440000",
+      memberId: "750e8400-e29b-41d4-a716-446655440000",
+      savingTypeId: "950e8400-e29b-41d4-a716-446655440000",
+      createdAt: "2024-04-01T00:00:00Z",
+      currentBalance: 1000.00
+    },
+    {
+      id: "a50e8400-e29b-41d4-a716-446655440001",
+      memberId: "750e8400-e29b-41d4-a716-446655440001",
+      savingTypeId: "950e8400-e29b-41d4-a716-446655440001",
+      createdAt: "2024-04-01T00:00:00Z",
+      currentBalance: 5000.00
+    }
+  ])
+  transaction_insertMany(data: [
+    {
+      id: "b50e8400-e29b-41d4-a716-446655440000",
+      memberId: "750e8400-e29b-41d4-a716-446655440000",
+      userId: "650e8400-e29b-41d4-a716-446655440000",
+      amount: 100.00,
+      createdAt: "2024-04-02T00:00:00Z",
+      description: "Deposit",
+      transactionDate: "2024-04-02T00:00:00Z",
+      transactionType: "deposit"
+    },
+    {
+      id: "b50e8400-e29b-41d4-a716-446655440001",
+      memberId: "750e8400-e29b-41d4-a716-446655440001",
+      userId: "650e8400-e29b-41d4-a716-446655440001",
+      amount: 200.00,
+      createdAt: "2024-04-03T00:00:00Z",
+      description: "Withdrawal",
+      transactionDate: "2024-04-03T00:00:00Z",
+      transactionType: "withdrawal"
+    }
+  ])
+}

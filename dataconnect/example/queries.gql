@@ -1,0 +1,30 @@
+mutation CreateSavingsAccount($memberId: UUID!, $savingTypeId: UUID!) @auth(level: USER) {
+  savings_insert(data: {memberId: $memberId, savingTypeId: $savingTypeId, currentBalance: 0.0})
+}
+
+query GetMemberSavingsAccounts($memberId: UUID!) @auth(level: USER) {
+  savingss(where: {memberId: {eq: $memberId}}) {
+    id
+    savingType {
+      name
+      description
+    }
+    currentBalance
+    lastTransactionDate
+  }
+}
+
+mutation RecordTransaction($memberId: UUID!, $amount: Float!, $description: String!, $transactionType: String!, $userId: UUID!) @auth(level: USER) {
+  transaction_insert(data: {memberId: $memberId, amount: $amount, description: $description, transactionType: $transactionType, userId: $userId, transactionDate_expr: "request.time", createdAt_expr: "request.time"})
+}
+
+query ListAllLoanTypes @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  loanTypes {
+    id
+    name
+    description
+    interestRate
+    loanTerm
+    maxLoanAmount
+  }
+}

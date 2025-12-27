@@ -1,16 +1,62 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/views/products/index_page.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
+
+  Future<Map<String, double>> _getFinancialSummary() async {
+    final salesRef = FirebaseFirestore.instance.collection('sales');
+    final withdrawalsRef = FirebaseFirestore.instance.collection('withdrawals');
+    final oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
+
+    final salesSnapshot = await salesRef.get();
+    final withdrawalsSnapshot = await withdrawalsRef.get();
+
+    double yearlyIncome = 0;
+    double allTimeIncome = 0;
+    for (var doc in salesSnapshot.docs) {
+      final data = doc.data();
+      final total = (data['total'] ?? 0).toDouble();
+      allTimeIncome += total;
+      if (data['createdAt'] != null &&
+          (data['createdAt'] as Timestamp).toDate().isAfter(oneYearAgo)) {
+        yearlyIncome += total;
+      }
+    }
+
+    double yearlyExpenses = 0;
+    double allTimeExpenses = 0;
+    for (var doc in withdrawalsSnapshot.docs) {
+      final data = doc.data();
+      final amount = (data['amount'] ?? 0).toDouble();
+      allTimeExpenses += amount;
+      if (data['createdAt'] != null &&
+          (data['createdAt'] as Timestamp).toDate().isAfter(oneYearAgo)) {
+        yearlyExpenses += amount;
+      }
+    }
+
+    final balance = allTimeIncome - allTimeExpenses;
+
+    return {
+      'yearlyIncome': yearlyIncome,
+      'yearlyExpenses': yearlyExpenses,
+      'balance': balance,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Dashboard Koperasi', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text('Dashboard Koperasi',
+            style: GoogleFonts.montserrat(
+                fontWeight: FontWeight.bold, color: Colors.white)),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -38,6 +84,8 @@ class DashboardPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const _Calendar(),
+              const SizedBox(height: 32),
               Text(
                 'Ringkasan Keuangan',
                 style: GoogleFonts.lato(
@@ -47,15 +95,46 @@ class DashboardPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const Row(
-                children: [
-                  Expanded(child: _InfoBox(title: 'Pemasukan', value: 'Rp 1.250.000', icon: Icons.arrow_circle_up, iconColor: Colors.green)),
-                  SizedBox(width: 16),
-                  Expanded(child: _InfoBox(title: 'Pengeluaran', value: 'Rp 350.000', icon: Icons.arrow_circle_down, iconColor: Colors.red)),
-                ],
+              FutureBuilder<Map<String, double>>(
+                future: _getFinancialSummary(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Center(child: Text('Error loading data'));
+                  }
+                  if (!snapshot.hasData || snapshot.data == null) {
+                    return const Center(child: Text('No data available'));
+                  }
+
+                  final data = snapshot.data!;
+                  final formatCurrency = NumberFormat.currency(
+                      locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+                  return Column(
+                    children: [
+                      _InfoBox(
+                          title: 'Pemasukan (1 Tahun)',
+                          value: formatCurrency.format(data['yearlyIncome']),
+                          icon: Icons.arrow_circle_up,
+                          iconColor: Colors.green),
+                      const SizedBox(height: 16),
+                      _InfoBox(
+                          title: 'Pengeluaran (1 Tahun)',
+                          value: formatCurrency.format(data['yearlyExpenses']),
+                          icon: Icons.arrow_circle_down,
+                          iconColor: Colors.red),
+                      const SizedBox(height: 16),
+                      _InfoBox(
+                          title: 'Sisa Uang (Total)',
+                          value: formatCurrency.format(data['balance']),
+                          icon: Icons.account_balance_wallet,
+                          iconColor: Colors.blue),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              const _InfoBox(title: 'Saldo Saat Ini', value: 'Rp 900.000', icon: Icons.account_balance_wallet, iconColor: Colors.blue),
               const SizedBox(height: 32),
               Text(
                 'Aksi Cepat',
@@ -67,13 +146,20 @@ class DashboardPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               GridView.count(
-                crossAxisCount: 2,
+                crossAxisCount: 3,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.1,
                 children: [
+                  _ActionButton(
+                    icon: Icons.receipt_long,
+                    label: 'Keuangan',
+                    onTap: () {
+                      // Navigate to finance page
+                    },
+                  ),
                   _ActionButton(
                     icon: Icons.shopping_cart_checkout,
                     label: 'Penjualan',
@@ -87,26 +173,13 @@ class DashboardPage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ProductIndex()),
+                        MaterialPageRoute(
+                            builder: (context) => const ProductIndex()),
                       );
                     },
                   ),
-                  _ActionButton(
-                    icon: Icons.receipt_long,
-                    label: 'Keuangan',
-                    onTap: () {
-                      // Navigate to finance page
-                    },
-                  ),
-                   _ActionButton(
-                    icon: Icons.groups,
-                    label: 'Anggota',
-                    onTap: () {
-                      // Navigate to members page
-                    },
-                  ),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -121,7 +194,11 @@ class _InfoBox extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
 
-  const _InfoBox({required this.title, required this.value, required this.icon, required this.iconColor});
+  const _InfoBox(
+      {required this.title,
+      required this.value,
+      required this.icon,
+      required this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +210,7 @@ class _InfoBox extends StatelessWidget {
         border: Border.all(color: Colors.brown[100]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha:0.05),
+            color: Colors.black.withAlpha(12),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -147,7 +224,11 @@ class _InfoBox extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.lato(fontSize: 15, color: Colors.brown[800], fontWeight: FontWeight.w600)),
+                Text(title,
+                    style: GoogleFonts.lato(
+                        fontSize: 15,
+                        color: Colors.brown[800],
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 Text(
                   value,
@@ -172,7 +253,8 @@ class _ActionButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _ActionButton({required this.icon, required this.label, required this.onTap});
+  const _ActionButton(
+      {required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -187,9 +269,9 @@ class _ActionButton extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-           boxShadow: [
+          boxShadow: [
             BoxShadow(
-              color: Colors.brown[800]!.withValues(alpha:0.3),
+              color: Colors.brown[800]!.withAlpha(76),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -200,13 +282,121 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(icon, color: Colors.white, size: 40),
             const SizedBox(height: 12),
-            Text(
-              label, 
-              textAlign: TextAlign.center,
-              style: GoogleFonts.lato(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)
-            ),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lato(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _Calendar extends StatefulWidget {
+  const _Calendar();
+
+  @override
+  _CalendarState createState() => _CalendarState();
+}
+
+class _CalendarState extends State<_Calendar> {
+  DateTime _focusedDay = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final month = DateFormat.MMMM('id_ID').format(_focusedDay);
+    final year = _focusedDay.year;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.brown[100]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header (Month and Year)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime(
+                          _focusedDay.year, _focusedDay.month - 1, 1);
+                    });
+                  },
+                ),
+                Text(
+                  '$month $year',
+                  style: GoogleFonts.lato(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.brown[800],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime(
+                          _focusedDay.year, _focusedDay.month + 1, 1);
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Calendar Grid
+          TableCalendar(
+            locale: 'id_ID',
+            firstDay: DateTime.utc(2010, 10, 16),
+            lastDay: DateTime.utc(2030, 3, 14),
+            focusedDay: _focusedDay,
+            headerVisible: false, // Hide default header
+            calendarFormat: CalendarFormat.month,
+            startingDayOfWeek: StartingDayOfWeek.monday,
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown[600]),
+              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.red[800]),
+            ),
+            calendarStyle: CalendarStyle(
+              todayDecoration: BoxDecoration(
+                color: Colors.brown[300],
+                shape: BoxShape.circle,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: Colors.brown[600],
+                shape: BoxShape.circle,
+              ),
+              weekendTextStyle: TextStyle(color: Colors.red[800]),
+            ),
+            onPageChanged: (focusedDay) {
+              setState(() {
+                _focusedDay = focusedDay;
+              });
+            },
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _focusedDay = focusedDay;
+              });
+            },
+          ),
+        ],
       ),
     );
   }

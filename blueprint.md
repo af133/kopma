@@ -3,50 +3,72 @@
 
 ## 1. Ikhtisar Proyek
 
-Aplikasi Koperasi Mahasiswa adalah aplikasi seluler yang dirancang untuk mengelola operasi dan keanggotaan koperasi di lingkungan mahasiswa. Aplikasi ini menyediakan fitur untuk otentikasi pengguna, melihat ringkasan keuangan, dan mengakses berbagai fungsi koperasi.
+Aplikasi Koperasi Mahasiswa adalah aplikasi seluler yang dirancang untuk mengelola operasi dan keanggotaan koperasi di lingkungan mahasiswa. Aplikasi ini menyediakan fitur untuk otentikasi pengguna, manajemen produk, pencatatan transaksi, dan pelaporan keuangan.
 
 ## 2. Gaya, Desain, dan Fitur yang Diimplementasikan
 
-Versi awal aplikasi ini berfokus pada penerapan antarmuka pengguna (UI) yang modern, konsisten, dan menarik dengan tema "koperasi".
-
 ### **Tema dan Gaya Utama**
 
-*   **Palet Warna:** Skema warna utama didasarkan pada warna `Colors.brown`. Ini memberikan nuansa yang hangat, profesional, dan dapat dipercaya.
-*   **Tipografi:** Menggunakan paket `google_fonts` untuk memastikan tipografi yang bersih dan mudah dibaca di seluruh aplikasi. Font utama yang digunakan adalah `Montserrat` untuk judul dan `Lato` untuk teks isi.
-*   **Latar Belakang:** Halaman otentikasi (Login dan Registrasi) menggunakan gambar latar belakang bertema finansial yang relevan (`https://images.unsplash.com/photo-1579621970795-87f91d908377?q=80&w=2070...`) untuk memperkuat identitas aplikasi.
-*   **Gaya Komponen:**
-    *   **Kartu (Card):** Komponen kartu digunakan secara luas untuk membungkus konten, seperti pada form login dan dasbor. Kartu memiliki sudut membulat (`borderRadius: BorderRadius.circular(16)`) dan bayangan (`elevation: 8`) untuk menciptakan efek "terangkat".
-    *   **Tombol (Button):** Tombol utama menggunakan `ElevatedButton` dengan latar belakang `Colors.brown[700]` dan teks putih, memastikan kontras yang baik dan keterbacaan.
-    *   **Input Fields:** `TextField` didesain dengan latar belakang yang sedikit berbeda (`Colors.brown[50]`), ikon awalan, dan tanpa garis batas untuk tampilan yang bersih.
+*   **Palet Warna:** Menggunakan `Colors.brown` sebagai warna primer, menciptakan nuansa yang hangat, profesional, dan dapat dipercaya.
+*   **Tipografi:**
+    *   Menggunakan paket `google_fonts` untuk gaya teks yang modern dan mudah dibaca.
+    *   **Judul Aplikasi (`AppBar`):** `GoogleFonts.montserrat` dengan `fontWeight: FontWeight.bold` untuk kesan yang kuat dan jelas.
+    *   **Teks Utama:** `GoogleFonts.latoTextTheme` untuk konten di seluruh aplikasi, memberikan keterbacaan yang sangat baik.
+*   **Desain `AppBar`:** Konsisten di seluruh aplikasi dengan latar belakang gradien dari `Colors.brown[700]` ke `Colors.brown[900]`, memberikan tampilan yang premium dan modern.
 
-### **Fitur yang Diimplementasikan**
+### **Fungsionalitas Utama**
 
-1.  **Otentikasi Pengguna (Firebase Auth)**
-    *   **Halaman Login (`lib/auth/login_page.dart`):**
-        *   Desain modern dengan gambar latar belakang, kartu transparan, dan input field yang menarik.
-        *   Fungsionalitas login menggunakan email dan password dengan Firebase Auth.
-        *   Menampilkan indikator pemuatan (loading) selama proses login.
-    *   **Halaman Registrasi (`lib/auth/register_page.dart`):**
-        *   Desain yang konsisten dengan halaman login.
-        *   Fungsionalitas pendaftaran pengguna baru dengan Firebase Auth.
-        *   Menyimpan informasi pengguna tambahan (nama, email, peran) ke Firestore setelah registrasi berhasil.
-    *   **Auth Wrapper (`lib/main.dart`):** Sebuah *guard* otentikasi yang secara otomatis mengarahkan pengguna ke halaman dasbor jika sudah login, atau ke halaman login jika belum.
+1.  **Otentikasi Pengguna (\`lib/auth/\`)**
+    *   Menggunakan Firebase Authentication.
+    *   Halaman login dengan email dan kata sandi.
+    *   Halaman pendaftaran untuk pengguna baru.
+    *   `AuthWrapper` secara otomatis mengarahkan pengguna ke halaman yang sesuai (login atau dasbor) berdasarkan status otentikasi mereka.
 
-2.  **Halaman Dasbor (`lib/pages/dashboard_page.dart`)**
-    *   **AppBar Kustom:** `AppBar` dengan warna tema, judul tebal, dan tombol logout.
-    *   **Ringkasan Keuangan (`_InfoBox`):**
-        *   Menampilkan ringkasan visual untuk "Pemasukan", "Pengeluaran", dan "Saldo".
-        *   Setiap `_InfoBox` didesain dengan ikon yang relevan dan warna berbeda untuk membedakan metrik.
-    *   **Aksi Cepat (`_ActionButton`):**
-        *   Sebuah `GridView` yang berisi tombol-tombol untuk navigasi cepat ke fitur-fitur utama seperti "Penjualan", "Produk", "Keuangan", dan "Anggota".
-        *   Tombol-tombol ini didesain agar mudah diakses dan menarik secara visual.
+2.  **Dasbor Utama (\`lib/views/dashboard_page.dart\`)**
+    *   Menampilkan ringkasan informasi penting.
+    *   Menyediakan navigasi utama ke fitur-fitur lain seperti "Manajemen Produk", "Riwayat Penjualan", dan "Laporan Keuangan".
+    *   Menyertakan tombol logout.
+
+3.  **Manajemen Produk (\`lib/views/products/\`)**
+    *   Menampilkan daftar produk dari koleksi `products` di Firestore.
+    *   **CRUD Penuh:** Pengguna dapat menambah, melihat, memperbarui, dan menghapus data produk.
+    *   **Pencarian Produk:** Fitur pencarian *real-time* untuk menyaring produk berdasarkan nama.
+
+4.  **Manajemen Penjualan (\`lib/views/penjualan/\`)**
+    *   Menampilkan riwayat penjualan dari koleksi `sales`.
+    *   **CRUD Penuh:** Pengguna dapat membuat, memperbarui, dan menghapus catatan penjualan.
+    *   **Filter & Ekspor:** Memungkinkan pemfilteran data penjualan berdasarkan rentang tanggal dan mengekspor hasilnya ke file CSV.
+
+5.  **Laporan Keuangan Terpusat (\`lib/views/rekap/rekap_page.dart\`)**
+    *   **Akses:** Dapat diakses melalui tombol **"Keuangan"** di halaman Dasbor.
+    *   **Struktur Tab:** Halaman ini dibagi menjadi dua bagian utama menggunakan `TabBar`:
+        *   **Tab Pemasukan:**
+            *   Menampilkan data dari koleksi `sales`.
+            *   Mengelompokkan semua pemasukan (penjualan) berdasarkan hari.
+            *   Setiap grup harian ditampilkan dalam `ExpansionTile` untuk menunjukkan total pendapatan hari itu dan detail setiap transaksi di dalamnya.
+        *   **Tab Pengeluaran:**
+            *   Menampilkan data dari koleksi `withdrawals`.
+            *   Menampilkan setiap item pengeluaran dalam kartu individual.
+            *   **CRUD Penuh untuk Pengeluaran.**
+
+6.  **Manajemen Gambar dengan Cloudinary (\`lib/services/cloudinary_service.dart\`)**
+    *   **Migrasi dari Firebase Storage:** Sistem manajemen gambar telah sepenuhnya dimigrasikan ke Cloudinary untuk optimasi dan transformasi gambar yang lebih baik.
+    *   **Layanan Terpusat:** `CloudinaryService` menangani semua logika unggah gambar untuk nota pengeluaran dan gambar produk.
+    *   **Penyimpanan Metadata:** URL gambar (`secure_url`) dan ID unik (`public_id`) disimpan di Firestore untuk setiap gambar yang diunggah. Ini memungkinkan manajemen gambar yang lebih baik, termasuk kemungkinan penghapusan di masa depan.
+    *   **Upload Preset:** Menggunakan sistem *unsigned upload* Cloudinary dengan *upload preset* (`kopma_preset`) untuk keamanan dan kesederhanaan dari sisi klien.
 
 ## 3. Rencana Saat Ini
 
-**Tugas: Finalisasi Desain Awal dan Penjaminan Kualitas**
+**Status:** Selesai.
 
-*   **Tujuan:** Memastikan bahwa semua perubahan UI yang telah diimplementasikan bebas dari kesalahan dan konsisten di seluruh aplikasi.
-*   **Langkah-langkah:**
-    1.  **Analisis Kode:** Menjalankan `flutter analyze` untuk mendeteksi potensi masalah dalam kode.
-    2.  **Pemeriksaan Fungsionalitas:** Memastikan alur otentikasi (login, registrasi, logout) berfungsi seperti yang diharapkan.
-    3.  **Pemberitahuan kepada Pengguna:** Melaporkan penyelesaian tugas dan status proyek saat ini.
+**Tugas yang Diselesaikan:**
+
+*   **Migrasi Penuh ke Cloudinary:** Mengganti seluruh fungsionalitas unggah, pembaruan, dan penyimpanan gambar dari Firebase Storage ke Cloudinary. Ini mencakup:
+    *   Penambahan `cloudinary_public`.
+    *   Pembuatan `CloudinaryService`.
+    *   Pembaruan model `Product` dan `Withdrawal` untuk menyertakan `public_id`.
+    *   Refaktor halaman *create* dan *update* untuk Produk dan Pengeluaran.
+    *   Pembersihan dependensi yang tidak terpakai.
+*   **Validasi Ulang Kode:** Memeriksa kembali kode, termasuk `lib/views/penjualan/index_page.dart`, dan mengonfirmasi bahwa peringatan `dead_code` yang dilaporkan sebelumnya telah teratasi dengan adanya fungsi `_exportData` yang baru.
+
+**Tugas Berikutnya:** Menunggu arahan atau laporan masalah baru dari pengguna. Proyek berada dalam keadaan stabil.
