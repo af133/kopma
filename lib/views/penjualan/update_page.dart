@@ -1,126 +1,82 @@
-
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/models/sale.dart';
 import 'package:myapp/services/sale_service.dart';
+import 'package:myapp/widgets/custom_app_bar.dart';
 
 class SaleUpdatePage extends StatefulWidget {
-  final Sale sale;
+  final String saleId;
 
-  const SaleUpdatePage({super.key, required this.sale});
+  const SaleUpdatePage({super.key, required this.saleId});
 
   @override
-  State<SaleUpdatePage> createState() => _SaleUpdatePageState();
+  SaleUpdatePageState createState() => SaleUpdatePageState();
 }
 
-class _SaleUpdatePageState extends State<SaleUpdatePage> {
+class SaleUpdatePageState extends State<SaleUpdatePage> {
   final _formKey = GlobalKey<FormState>();
-  final _saleService = SaleService();
-  late int _quantity;
-  final int _oldQuantity = 0;
-
-  bool _isLoading = false;
+  final _quantityController = TextEditingController();
+  late Sale _sale;
+  int _oldQuantity = 0;
 
   @override
   void initState() {
     super.initState();
-    _quantity = widget.sale.quantity;
-  }
-
-  void _submit() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-
+    SaleService().getSale(widget.saleId).then((sale) {
       setState(() {
-        _isLoading = true;
+        _sale = sale;
+        _oldQuantity = sale.quantity;
+        _quantityController.text = sale.quantity.toString();
       });
-
-      final updatedSale = Sale(
-        id: widget.sale.id,
-        productId: widget.sale.productId,
-        name: widget.sale.name,
-        price: widget.sale.price,
-        quantity: _quantity,
-        total: widget.sale.price * _quantity,
-        createdAt: widget.sale.createdAt,
-      );
-
-      try {
-        await _saleService.updateSale(updatedSale, _oldQuantity);
-        if (mounted) {
-          Navigator.pop(context);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal memperbarui penjualan: $e')),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Colors.brown[700]!;
-    final Color backgroundColor = Colors.brown[50]!;
-    final Color accentColor = Colors.brown[900]!;
-
-    final inputDecoration = InputDecoration(
-      labelStyle: TextStyle(color: Colors.brown[800]),
-      focusedBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: accentColor, width: 2.0),
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: Colors.brown[300]!),
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-    );
-
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: const Text('Ubah Penjualan', style: TextStyle(color: Colors.white)),
-        backgroundColor: primaryColor,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: const CustomAppBar(title: 'Perbarui Penjualan'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
-              Text('Produk: ${widget.sale.name}', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
               TextFormField(
-                initialValue: _quantity.toString(),
-                decoration: inputDecoration.copyWith(labelText: 'Jumlah'),
+                controller: _quantityController,
+                decoration: InputDecoration(
+                  labelText: 'Jumlah',
+                  labelStyle: GoogleFonts.lato(),
+                ),
                 keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? 'Jumlah harus diisi' : null,
-                onSaved: (value) => _quantity = int.tryParse(value!) ?? 0,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan jumlah';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 24),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                      ),
-                      onPressed: _submit,
-                      child: const Text('Simpan Perubahan', style: TextStyle(fontSize: 16)),
-                    ),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    final newQuantity = int.parse(_quantityController.text);
+                    final newTotal = _sale.price * newQuantity;
+                    final updatedSale = Sale(
+                      id: _sale.id,
+                      name: _sale.name,
+                      price: _sale.price,
+                      quantity: newQuantity,
+                      total: newTotal,
+                      createdAt: _sale.createdAt,
+                      productId: _sale.productId,
+                    );
+                    SaleService().updateSale(updatedSale, _oldQuantity);
+                    context.pop();
+                  }
+                },
+                child: const Text('Simpan'),
+              ),
             ],
           ),
         ),

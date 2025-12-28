@@ -1,152 +1,176 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/models/product.dart';
+import 'package:myapp/models/sale.dart';
+import 'package:myapp/services/product_service.dart';
+import 'package:myapp/services/sale_service.dart';
+import 'package:myapp/widgets/custom_app_bar.dart';
 
-class CreatePage extends StatefulWidget {
-  const CreatePage({super.key});
+class SaleCreatePage extends StatefulWidget {
+  const SaleCreatePage({super.key});
 
   @override
-  State<CreatePage> createState() => _CreatePageState();
+  SaleCreatePageState createState() => SaleCreatePageState();
 }
 
-class _CreatePageState extends State<CreatePage> {
+class SaleCreatePageState extends State<SaleCreatePage> {
   final _formKey = GlobalKey<FormState>();
-  String? _selectedProduct;
-  final _productNameController = TextEditingController();
-  final _priceController = TextEditingController();
   final _quantityController = TextEditingController();
-  double _total = 0.0;
+  final _manualNameController = TextEditingController();
+  final _manualPriceController = TextEditingController();
 
-  List<DropdownMenuItem<String>> _productItems = [];
-  bool _isOther = false;
+  Product? _selectedProduct;
+  bool _showManualEntry = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProducts();
-    _quantityController.addListener(_calculateTotal);
-    _priceController.addListener(_calculateTotal);
-  }
-
-  Future<void> _loadProducts() async {
-    final products = await FirebaseFirestore.instance.collection('products').get();
-    final items = products.docs.map((doc) {
-      return DropdownMenuItem(
-        value: doc.id,
-        child: Text(doc['name']),
-      );
-    }).toList();
-
-    setState(() {
-      _productItems = items;
-      _productItems.add(const DropdownMenuItem(
-        value: 'other',
-        child: Text('Lainnya'),
-      ));
-    });
-  }
-
-  void _onProductSelected(String? newValue) {
-    if (newValue == 'other') {
-      setState(() {
-        _isOther = true;
-        _selectedProduct = newValue;
-        _productNameController.clear();
-        _priceController.clear();
-      });
-    } else {
-      FirebaseFirestore.instance
-          .collection('products')
-          .doc(newValue)
-          .get()
-          .then((doc) {
-        setState(() {
-          _isOther = false;
-          _selectedProduct = newValue;
-          _productNameController.text = doc['name'];
-          _priceController.text = doc['price'].toString();
-          _calculateTotal();
-        });
-      });
-    }
-  }
-
-  void _calculateTotal() {
-    final price = double.tryParse(_priceController.text) ?? 0.0;
-    final quantity = int.tryParse(_quantityController.text) ?? 0;
-    setState(() {
-      _total = price * quantity;
-    });
-  }
-
-  Future<void> _saveSale() async {
-    if (_formKey.currentState!.validate()) {
-      await FirebaseFirestore.instance.collection('sales').add({
-        'productName': _productNameController.text,
-        'price': double.parse(_priceController.text),
-        'quantity': int.parse(_quantityController.text),
-        'total': _total,
-        'date': Timestamp.now(),
-      });
-      Navigator.pop(context);
-    }
-  }
+  // Dummy product for the "Lainnya" option
+  final Product _otherProduct = Product(
+    id: 'other',
+    name: 'Lainnya',
+    price: 0,
+    stock: 0,
+    imageUrl: '',
+  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Sale'),
-      ),
+      appBar: const CustomAppBar(title: 'Buat Penjualan'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedProduct,
-                items: _productItems,
-                onChanged: _onProductSelected,
-                decoration: const InputDecoration(labelText: 'Product'),
-                validator: (value) => value == null ? 'Please select a product' : null,
+              StreamBuilder<List<Product>>(
+                stream: ProductService().getProducts(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
+                  final products = snapshot.data!;
+                  // Add the "Lainnya" option to the list
+                  final items = [ ...products, _otherProduct ];
+
+                  return DropdownButtonFormField<Product>(
+                    items: items.map((product) {
+                      return DropdownMenuItem<Product>(
+                        value: product,
+                        child: Text(product.name, style: GoogleFonts.lato()),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedProduct = value;
+                        _showManualEntry = (value?.id == 'other');
+                      });
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Produk',
+                      labelStyle: GoogleFonts.lato(),
+                    ),
+                  );
+                },
               ),
-              if (_isOther)
-                TextFormField(
-                  controller: _productNameController,
-                  decoration: const InputDecoration(labelText: 'Product Name'),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Please enter a product name' : null,
+              if (_showManualEntry)
+                Column(
+                  children: [
+                    TextFormField(
+                      controller: _manualNameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nama Produk Manual',
+                        labelStyle: GoogleFonts.lato(),
+                      ),
+                      validator: (value) {
+                        if (_showManualEntry && (value == null || value.isEmpty)) {
+                          return 'Masukkan nama produk';
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: _manualPriceController,
+                      decoration: InputDecoration(
+                        labelText: 'Harga Produk Manual',
+                        labelStyle: GoogleFonts.lato(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (_showManualEntry && (value == null || value.isEmpty)) {
+                          return 'Masukkan harga produk';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
               TextFormField(
-                controller: _priceController,
-                decoration: const InputDecoration(labelText: 'Price'),
-                keyboardType: TextInputType.number,
-                readOnly: !_isOther,
-                validator: (value) =>
-                    value!.isEmpty ? 'Please enter a price' : null,
-              ),
-              TextFormField(
                 controller: _quantityController,
-                decoration: const InputDecoration(labelText: 'Quantity'),
+                decoration: InputDecoration(
+                  labelText: 'Jumlah',
+                  labelStyle: GoogleFonts.lato(),
+                ),
                 keyboardType: TextInputType.number,
-                validator: (value) =>
-                    value!.isEmpty ? 'Please enter a quantity' : null,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Total: ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(_total)}',
-                style: Theme.of(context).textTheme.titleLarge,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan jumlah';
+                  }
+                  if(int.tryParse(value) == null || int.parse(value) <= 0) {
+                    return 'Jumlah tidak valid';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _saveSale,
-                child: const Text('Save'),
+                child: const Text('Simpan'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _saveSale() {
+    if (_formKey.currentState!.validate() && (_selectedProduct != null)) {
+      final int quantity = int.parse(_quantityController.text);
+      late Sale saleToCreate;
+
+      if (_showManualEntry) {
+        final int manualPrice = int.parse(_manualPriceController.text);
+        saleToCreate = Sale(
+          id: '', // Firestore will generate it
+          name: _manualNameController.text,
+          price: manualPrice,
+          quantity: quantity,
+          total: manualPrice * quantity,
+          createdAt: Timestamp.now(),
+          // productId is null for manual entries
+        );
+      } else {
+        saleToCreate = Sale(
+          id: '', // Firestore will generate it
+          name: _selectedProduct!.name,
+          price: _selectedProduct!.price.toInt(),
+          quantity: quantity,
+          total: (_selectedProduct!.price * quantity).toInt(),
+          createdAt: Timestamp.now(),
+          productId: _selectedProduct!.id,
+        );
+      }
+
+      SaleService().createSale(saleToCreate).then((_) {
+        // ignore: use_build_context_synchronously
+        context.pop();
+      }).catchError((error) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan penjualan: $error')),
+        );
+      });
+    }
   }
 }

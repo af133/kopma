@@ -1,185 +1,226 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:myapp/models/product.dart';
 import 'package:myapp/services/cloudinary_service.dart';
 import 'package:myapp/services/product_service.dart';
+import 'package:myapp/widgets/custom_app_bar.dart';
+import 'package:uuid/uuid.dart';
 
-class CreateProductPage extends StatefulWidget {
-  const CreateProductPage({super.key});
+class ProductCreatePage extends StatefulWidget {
+  const ProductCreatePage({super.key});
 
   @override
-  _CreateProductPageState createState() => _CreateProductPageState();
+  ProductCreatePageState createState() => ProductCreatePageState();
 }
 
-class _CreateProductPageState extends State<CreateProductPage> {
+class ProductCreatePageState extends State<ProductCreatePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _priceController = TextEditingController();
   final _stockController = TextEditingController();
+  final _priceController = TextEditingController();
   XFile? _imageFile;
-
   final ImagePicker _picker = ImagePicker();
-  final ProductService _productService = ProductService();
   final CloudinaryService _cloudinaryService = CloudinaryService();
+  bool _isLoading = false;
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    setState(() {
-      _imageFile = pickedFile;
-    });
+    final XFile? selectedImage =
+        await _picker.pickImage(source: ImageSource.gallery);
+    if (mounted) {
+      setState(() {
+        _imageFile = selectedImage;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Tambah Produk Baru', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.white)),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.brown[700]!, Colors.brown[900]!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        elevation: 4,
-      ),
-      backgroundColor: Colors.brown[50],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: const CustomAppBar(title: 'Tambah Produk'),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
-              _buildImagePicker(),
-              const SizedBox(height: 24),
-              _buildTextFormField(
+              TextFormField(
                 controller: _nameController,
-                labelText: 'Nama Produk',
-                icon: Icons.shopping_bag_outlined,
+                decoration: InputDecoration(
+                  labelText: 'Nama Produk',
+                  labelStyle: GoogleFonts.lato(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan nama produk';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
-              _buildTextFormField(
+              TextFormField(
                 controller: _priceController,
-                labelText: 'Harga',
+                decoration: InputDecoration(
+                  labelText: 'Harga',
+                  labelStyle: GoogleFonts.lato(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
                 keyboardType: TextInputType.number,
-                icon: Icons.attach_money_outlined,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan harga';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Masukkan harga yang valid';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
-              _buildTextFormField(
+              TextFormField(
                 controller: _stockController,
-                labelText: 'Stok',
+                decoration: InputDecoration(
+                  labelText: 'Stok',
+                  labelStyle: GoogleFonts.lato(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
                 keyboardType: TextInputType.number,
-                icon: Icons.inventory_2_outlined,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan stok';
+                  }
+                  if (int.tryParse(value) == null) {
+                    return 'Masukkan stok yang valid';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              _imageFile == null
+                  ? Container(
+                      height: 150,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: Theme.of(context).colorScheme.outline),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Belum ada gambar dipilih',
+                          style: GoogleFonts.lato(
+                              color: Theme.of(context).colorScheme.onSurface),
+                        ),
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: Image.file(
+                        File(_imageFile!.path),
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.image),
+                onPressed: _pickImage,
+                label: const Text('Pilih Gambar'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
               ),
               const SizedBox(height: 32),
-              _buildSubmitButton(),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                          if (_imageFile == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Silakan pilih gambar.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          if(mounted) {
+                            setState(() {
+                              _isLoading = true;
+                            });
+                          }
+
+                          try {
+                            final response =
+                                await _cloudinaryService.uploadImage(_imageFile!);
+                            final imageUrl = response.secureUrl;
+
+                            final newProduct = Product(
+                              id: const Uuid().v4(),
+                              name: _nameController.text,
+                              price: double.parse(_priceController.text),
+                              stock: int.parse(_stockController.text),
+                              imageUrl: imageUrl,
+                            );
+
+                            await ProductService().createProduct(newProduct);
+                            
+                            if (mounted) {
+                              // ignore: use_build_context_synchronously
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Produk berhasil ditambahkan!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              // ignore: use_build_context_synchronously
+                              context.pop();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              // ignore: use_build_context_synchronously
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if(mounted) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                            }
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
+                      child: const Text('Simpan'),
+                    ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildImagePicker() {
-    return GestureDetector(
-      onTap: _pickImage,
-      child: Container(
-        height: 150,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.brown[200]!, width: 2),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-        ),
-        child: _imageFile == null
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('Pilih Gambar', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              )
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.file(File(_imageFile!.path), fit: BoxFit.cover, width: double.infinity),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildTextFormField({
-    required TextEditingController controller,
-    required String labelText,
-    TextInputType keyboardType = TextInputType.text,
-    IconData? icon,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: labelText,
-        prefixIcon: icon != null ? Icon(icon, color: Colors.brown[700]) : null,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.brown[700]!, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Kolom ini tidak boleh kosong';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildSubmitButton() {
-    return ElevatedButton(
-      onPressed: () async {
-        if (_formKey.currentState!.validate()) {
-          String? imageUrl;
-          String? publicId;
-
-          if (_imageFile != null) {
-            final response = await _cloudinaryService.uploadImage(_imageFile!);
-            imageUrl = response.secureUrl;
-            publicId = response.publicId;
-          }
-
-          Product product = Product(
-            id: '', // Firestore will generate an ID
-            name: _nameController.text,
-            price: double.parse(_priceController.text),
-            stock: int.parse(_stockController.text),
-            imageUrl: imageUrl,
-            publicId: publicId,
-          );
-
-          await _productService.addProduct(product);
-          Navigator.pop(context, true);
-        }
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.brown[700],
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 5,
-      ),
-      child: Text(
-        'Simpan Produk',
-        style: GoogleFonts.lato(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
       ),
     );
   }

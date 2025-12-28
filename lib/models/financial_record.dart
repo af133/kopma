@@ -1,38 +1,40 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum RecordType { income, expense }
-
 class FinancialRecord {
   final String id;
-  final String description;
+  final String type;
   final double amount;
-  final RecordType type;
+  final String description;
+  final DateTime date;
   final Timestamp createdAt;
 
   FinancialRecord({
     required this.id,
-    required this.description,
-    required this.amount,
     required this.type,
+    required this.amount,
+    required this.description,
+    required this.date,
     required this.createdAt,
   });
 
   factory FinancialRecord.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    Map data = doc.data() as Map<String, dynamic>;
     return FinancialRecord(
       id: doc.id,
+      type: data['type'] ?? '',
+      amount: (data['amount'] as num).toDouble(),
       description: data['description'] ?? '',
-      amount: (data['amount'] ?? 0).toDouble(),
-      type: (data['type'] == 'income') ? RecordType.income : RecordType.expense,
-      createdAt: data['createdAt'] ?? Timestamp.now(),
+      date: (data['date'] as Timestamp).toDate(),
+      createdAt: data['createdAt'] as Timestamp,
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
-      'description': description,
+      'type': type,
       'amount': amount,
-      'type': type == RecordType.income ? 'income' : 'expense',
+      'description': description,
+      'date': date,
       'createdAt': createdAt,
     };
   }

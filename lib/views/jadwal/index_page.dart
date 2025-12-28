@@ -1,40 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/models/financial_record.dart';
+import 'package:myapp/models/schedule.dart';
 import 'package:myapp/routes/app_router.dart';
-import 'package:myapp/services/financial_service.dart';
+import 'package:myapp/services/schedule_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/widgets/custom_app_bar.dart';
 
-class FinancialRecordListPage extends StatelessWidget {
-  const FinancialRecordListPage({super.key});
+class ScheduleListPage extends StatelessWidget {
+  const ScheduleListPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: const CustomAppBar(title: 'Keuangan'),
-      body: StreamBuilder<List<FinancialRecord>>(
-        stream: FinancialService().getFinancialRecords(),
+      appBar: const CustomAppBar(title: 'Jadwal Piket'),
+      body: StreamBuilder<List<Schedule>>(
+        stream: ScheduleService().getSchedules(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(
-                child: Text('Tidak ada catatan keuangan.',
-                    style: GoogleFonts.lato()));
+                child: Text('Tidak ada jadwal.', style: GoogleFonts.lato()));
           }
           return ListView.builder(
             itemCount: snapshot.data!.length,
             itemBuilder: (context, index) {
-              FinancialRecord record = snapshot.data![index];
+              Schedule schedule = snapshot.data![index];
               return Card(
                 margin: const EdgeInsets.all(10),
                 child: ListTile(
-                  title: Text(record.description, style: GoogleFonts.poppins()),
-                  subtitle: Text(
-                      'Jumlah: ${record.amount} - Jenis: ${record.type}',
+                  title: Text(schedule.day, style: GoogleFonts.poppins()),
+                  subtitle: Text(schedule.names.join(', '),
                       style: GoogleFonts.lato()),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -43,13 +41,13 @@ class FinancialRecordListPage extends StatelessWidget {
                         icon: const Icon(Icons.edit),
                         onPressed: () {
                           context.push(
-                              '${AppRoutes.keuanganUpdate}/${record.id}');
+                              '${AppRoutes.scheduleUpdate}/${schedule.id}');
                         },
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () {
-                          FinancialService().deleteFinancialRecord(record.id);
+                          ScheduleService().deleteSchedule(schedule.id);
                         },
                       ),
                     ],
@@ -62,7 +60,7 @@ class FinancialRecordListPage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          context.push(AppRoutes.keuanganCreate);
+          context.push(AppRoutes.scheduleCreate);
         },
         child: const Icon(Icons.add),
       ),

@@ -1,207 +1,300 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:myapp/models/product.dart';
 import 'package:myapp/services/cloudinary_service.dart';
 import 'package:myapp/services/product_service.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:myapp/widgets/custom_app_bar.dart';
 
-class UpdateProductPage extends StatefulWidget {
-  final Product product;
+class ProductUpdatePage extends StatefulWidget {
+  final String productId;
 
-  const UpdateProductPage({super.key, required this.product});
+  const ProductUpdatePage({super.key, required this.productId});
 
   @override
-  _UpdateProductPageState createState() => _UpdateProductPageState();
+  ProductUpdatePageState createState() => ProductUpdatePageState();
 }
 
-class _UpdateProductPageState extends State<UpdateProductPage> {
+class ProductUpdatePageState extends State<ProductUpdatePage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _priceController;
-  late TextEditingController _stockController;
+  final _nameController = TextEditingController();
+  final _stockController = TextEditingController();
+  final _priceController = TextEditingController();
   XFile? _imageFile;
+  String? _existingImageUrl;
 
   final ImagePicker _picker = ImagePicker();
-  final ProductService _productService = ProductService();
   final CloudinaryService _cloudinaryService = CloudinaryService();
+  final ProductService _productService = ProductService();
+  bool _isLoading = false;
+  late Future<Product> _productFuture;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.product.name);
-    _priceController = TextEditingController(text: widget.product.price.toString());
-    _stockController = TextEditingController(text: widget.product.stock.toString());
+    _productFuture = _productService.getProduct(widget.productId);
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    setState(() {
-      _imageFile = pickedFile;
-    });
+    final XFile? selectedImage =
+        await _picker.pickImage(source: ImageSource.gallery);
+    if (mounted) {
+      setState(() {
+        _imageFile = selectedImage;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Perbarui Produk', style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.white)),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.brown[700]!, Colors.brown[900]!],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        elevation: 4,
-      ),
-      backgroundColor: Colors.brown[50],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildImagePicker(),
-              const SizedBox(height: 24),
-              _buildTextFormField(
-                controller: _nameController,
-                labelText: 'Nama Produk',
-                icon: Icons.shopping_bag_outlined,
-              ),
-              const SizedBox(height: 16),
-              _buildTextFormField(
-                controller: _priceController,
-                labelText: 'Harga',
-                keyboardType: TextInputType.number,
-                icon: Icons.attach_money_outlined,
-              ),
-              const SizedBox(height: 16),
-              _buildTextFormField(
-                controller: _stockController,
-                labelText: 'Stok',
-                keyboardType: TextInputType.number,
-                icon: Icons.inventory_2_outlined,
-              ),
-              const SizedBox(height: 32),
-              _buildSubmitButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImagePicker() {
-    return GestureDetector(
-      onTap: _pickImage,
-      child: Container(
-        height: 150,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.brown[200]!, width: 2),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-        ),
-        child: _imageFile != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.file(File(_imageFile!.path), fit: BoxFit.cover, width: double.infinity),
-              )
-            : (widget.product.imageUrl != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: CachedNetworkImage(
-                      imageUrl: widget.product.imageUrl!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.red),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: CustomAppBar(
+        title: 'Edit Produk',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.white),
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Hapus Produk'),
+                  content: const Text('Apakah Anda yakin ingin menghapus produk ini?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Batal'),
                     ),
-                  )
-                : const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_a_photo_outlined, size: 40, color: Colors.grey),
-                        SizedBox(height: 8),
-                        Text('Pilih Gambar', style: TextStyle(color: Colors.grey)),
-                      ],
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Hapus'),
                     ),
-                  )),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                await _productService.deleteProduct(widget.productId);
+                if (mounted) {
+                  // ignore: use_build_context_synchronously
+                  context.pop();
+                }
+              }
+            },
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildTextFormField({
-    required TextEditingController controller,
-    required String labelText,
-    TextInputType keyboardType = TextInputType.text,
-    IconData? icon,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: labelText,
-        prefixIcon: icon != null ? Icon(icon, color: Colors.brown[700]) : null,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.brown[700]!, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Kolom ini tidak boleh kosong';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildSubmitButton() {
-    return ElevatedButton(
-      onPressed: () async {
-        if (_formKey.currentState!.validate()) {
-          String? imageUrl = widget.product.imageUrl;
-          String? publicId = widget.product.publicId;
-
-          if (_imageFile != null) {
-            final response = await _cloudinaryService.uploadImage(_imageFile!);
-            imageUrl = response.secureUrl;
-            publicId = response.publicId;
+      body: FutureBuilder<Product>(
+        future: _productFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: Text('Produk tidak ditemukan.'));
           }
 
-          Product updatedProduct = Product(
-            id: widget.product.id,
-            name: _nameController.text,
-            price: double.parse(_priceController.text),
-            stock: int.parse(_stockController.text),
-            imageUrl: imageUrl,
-            publicId: publicId,
-          );
+          final product = snapshot.data!;
+          _nameController.text = product.name;
+          _priceController.text = product.price.toString();
+          _stockController.text = product.stock.toString();
+          _existingImageUrl = product.imageUrl;
 
-          await _productService.updateProduct(updatedProduct);
-          Navigator.pop(context, true);
-        }
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.brown[700],
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 5,
-      ),
-      child: Text(
-        'Simpan Perubahan',
-        style: GoogleFonts.lato(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nama Produk',
+                      labelStyle: GoogleFonts.lato(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Masukkan nama produk';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _priceController,
+                    decoration: InputDecoration(
+                      labelText: 'Harga',
+                      labelStyle: GoogleFonts.lato(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Masukkan harga';
+                      }
+                      if (double.tryParse(value) == null) {
+                        return 'Masukkan harga yang valid';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _stockController,
+                    decoration: InputDecoration(
+                      labelText: 'Stok',
+                      labelStyle: GoogleFonts.lato(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Masukkan stok';
+                      }
+                      if (int.tryParse(value) == null) {
+                        return 'Masukkan stok yang valid';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  _imageFile != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.file(
+                            File(_imageFile!.path),
+                            height: 150,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : _existingImageUrl != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Image.network(
+                                _existingImageUrl!,
+                                height: 150,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder:
+                                    (context, error, stackTrace) =>
+                                        const Icon(Icons.broken_image, size: 50),
+                              ),
+                            )
+                          : Container(
+                              height: 150,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: Theme.of(context).colorScheme.outline),
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Tidak ada gambar',
+                                  style: GoogleFonts.lato(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface),
+                                ),
+                              ),
+                            ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.image),
+                    onPressed: _pickImage,
+                    label: const Text('Ubah Gambar'),
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                          onPressed: () async {
+                            if (_formKey.currentState!.validate()) {
+                              if (mounted) {
+                                setState(() {
+                                  _isLoading = true;
+                                });
+                              }
+
+                              try {
+                                String? imageUrl = _existingImageUrl;
+                                if (_imageFile != null) {
+                                  final response = await _cloudinaryService
+                                      .uploadImage(_imageFile!);
+                                  imageUrl = response.secureUrl;
+                                }
+
+                                final updatedProduct = Product(
+                                  id: widget.productId,
+                                  name: _nameController.text,
+                                  price: double.parse(_priceController.text),
+                                  stock: int.parse(_stockController.text),
+                                  imageUrl: imageUrl,
+                                );
+
+                                await _productService.updateProduct(
+                                    widget.productId, updatedProduct);
+                                if (mounted) {
+                                  // ignore: use_build_context_synchronously
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Produk berhasil diperbarui!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                  // ignore: use_build_context_synchronously
+                                  context.pop();
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  // ignore: use_build_context_synchronously
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                }
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                          ),
+                          child: const Text('Simpan Perubahan'),
+                        ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

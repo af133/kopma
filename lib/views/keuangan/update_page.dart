@@ -1,122 +1,150 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:myapp/models/withdrawal.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/models/financial_record.dart';
+import 'package:myapp/services/financial_service.dart';
+import 'package:myapp/widgets/custom_app_bar.dart';
 
-class UpdatePage extends StatefulWidget {
-  final Withdrawal withdrawal;
+class FinancialRecordUpdatePage extends StatefulWidget {
+  final String recordId;
 
-  const UpdatePage({super.key, required this.withdrawal});
+  const FinancialRecordUpdatePage({super.key, required this.recordId});
 
   @override
-  State<UpdatePage> createState() => _UpdatePageState();
+  FinancialRecordUpdatePageState createState() =>
+      FinancialRecordUpdatePageState();
 }
 
-class _UpdatePageState extends State<UpdatePage> {
+class FinancialRecordUpdatePageState extends State<FinancialRecordUpdatePage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
-  late TextEditingController _amountController;
-  File? _image;
-  final picker = ImagePicker();
-  final cloudinary = CloudinaryPublic('YOUR_CLOUD_NAME', 'YOUR_UPLOAD_PRESET', cache: false);
-
+  final _descriptionController = TextEditingController();
+  final _amountController = TextEditingController();
+  String _type = 'income';
+  DateTime _selectedDate = DateTime.now();
+  bool _isLoading = true;
+  late FinancialRecord _record;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.withdrawal.title);
-    _descriptionController = TextEditingController(text: widget.withdrawal.description);
-    _amountController = TextEditingController(text: widget.withdrawal.amount.toString());
-  }
-
-  Future<void> _getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    setState(() {
-      if (pickedFile != null) {
-        _image = File(pickedFile.path);
+    FinancialService().getFinancialRecord(widget.recordId).then((record) {
+      _descriptionController.text = record.description;
+      _amountController.text = record.amount.toString();
+      if (mounted) {
+        setState(() {
+          _record = record;
+          _type = record.type;
+          _selectedDate = record.date;
+          _isLoading = false;
+        });
       }
     });
   }
 
-  Future<void> _updateWithdrawal() async {
-    if (_formKey.currentState!.validate()) {
-      String? imageUrl = widget.withdrawal.notaImg;
-      String? publicId = widget.withdrawal.publicId;
-
-      if (_image != null) {
-        CloudinaryResponse response = await cloudinary.uploadFile(
-          CloudinaryFile.fromFile(_image!.path, resourceType: CloudinaryResourceType.Image),
-        );
-        imageUrl = response.secureUrl;
-        publicId = response.publicId;
-      }
-
-      await FirebaseFirestore.instance
-          .collection('withdrawals')
-          .doc(widget.withdrawal.id)
-          .update({
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'amount': double.parse(_amountController.text),
-        'nota_img': imageUrl,
-        'publicId': publicId,
-      });
-
-      Navigator.pop(context);
-    }
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _amountController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Update Expense'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (value) => value!.isEmpty ? 'Please enter a title' : null,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: const CustomAppBar(title: 'Perbarui Catatan Keuangan'),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: InputDecoration(
+                        labelText: 'Deskripsi',
+                        labelStyle: GoogleFonts.lato(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Masukkan deskripsi';
+                        }
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      controller: _amountController,
+                      decoration: InputDecoration(
+                        labelText: 'Jumlah',
+                        labelStyle: GoogleFonts.lato(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Masukkan jumlah';
+                        }
+                        return null;
+                      },
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: _type,
+                      decoration: InputDecoration(
+                        labelText: 'Jenis',
+                        labelStyle: GoogleFonts.lato(),
+                      ),
+                      items: ['income', 'expense']
+                          .map((label) => DropdownMenuItem(
+                                value: label,
+                                child: Text(label),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _type = value!;
+                        });
+                      },
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                        );
+                        if (picked != null && picked != _selectedDate) {
+                          setState(() {
+                            _selectedDate = picked;
+                          });
+                        }
+                      },
+                      child: const Text('Pilih Tanggal'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                           if (!mounted) return;
+                          FinancialService().updateFinancialRecord(
+                            FinancialRecord(
+                              id: widget.recordId,
+                              description: _descriptionController.text,
+                              amount: double.parse(_amountController.text),
+                              type: _type,
+                              date: _selectedDate,
+                              createdAt: _record.createdAt, // Keep original creation date
+                            ),
+                          );
+                          context.pop();
+                        }
+                      },
+                      child: const Text('Simpan'),
+                    ),
+                  ],
+                ),
               ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                validator: (value) => value!.isEmpty ? 'Please enter a description' : null,
-              ),
-              TextFormField(
-                controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? 'Please enter an amount' : null,
-              ),
-              const SizedBox(height: 20),
-              _image == null
-                  ? (widget.withdrawal.notaImg != null
-                      ? Image.network(widget.withdrawal.notaImg!)
-                      : const Text('No image available.'))
-                  : Image.file(_image!),
-              ElevatedButton(
-                onPressed: _getImage,
-                child: const Text('Change Image'),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _updateWithdrawal,
-                child: const Text('Update'),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

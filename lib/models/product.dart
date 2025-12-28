@@ -6,7 +6,6 @@ class Product {
   final double price;
   final int stock;
   final String? imageUrl;
-  final String? publicId;
 
   Product({
     required this.id,
@@ -14,7 +13,6 @@ class Product {
     required this.price,
     required this.stock,
     this.imageUrl,
-    this.publicId,
   });
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
@@ -25,7 +23,6 @@ class Product {
       price: (data['price'] ?? 0).toDouble(),
       stock: (data['stock'] ?? 0).toInt(),
       imageUrl: data['imageUrl'],
-      publicId: data['publicId'],
     );
   }
 
@@ -35,7 +32,14 @@ class Product {
       'price': price,
       'stock': stock,
       'imageUrl': imageUrl,
-      'publicId': publicId,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Product && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

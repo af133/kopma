@@ -2,44 +2,32 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Withdrawal {
   final String id;
-  final String title;
   final String description;
   final double amount;
-  final Timestamp createdAt;
-  final String? notaImg;
-  final String? publicId;
+  final DateTime date;
 
   Withdrawal({
     required this.id,
-    required this.title,
     required this.description,
     required this.amount,
-    required this.createdAt,
-    this.notaImg,
-    this.publicId,
+    required this.date,
   });
 
   factory Withdrawal.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Withdrawal(
       id: doc.id,
-      title: data['title'] ?? '',
       description: data['description'] ?? '',
       amount: (data['amount'] ?? 0).toDouble(),
-      createdAt: data['createdAt'] ?? Timestamp.now(),
-      notaImg: data['nota_img'],
-      publicId: data['publicId'],
+      date: (data['createdAt'] as Timestamp).toDate(),
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
-      'title': title,
       'description': description,
       'amount': amount,
-      'createdAt': createdAt,
-      'nota_img': notaImg,
-      'publicId': publicId,
+      'createdAt': Timestamp.fromDate(date),
     };
   }
 }

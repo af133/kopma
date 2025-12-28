@@ -11,17 +11,17 @@ class ProductService {
     });
   }
 
-  Future<List<Product>> getProductsList() async {
-    final snapshot = await _productsCollection.get();
-    return snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
+  Future<Product> getProduct(String id) async {
+    final doc = await _productsCollection.doc(id).get();
+    return Product.fromFirestore(doc);
   }
 
-  Future<void> addProduct(Product product) {
+  Future<void> createProduct(Product product) {
     return _productsCollection.add(product.toFirestore());
   }
 
-  Future<void> updateProduct(Product product) {
-    return _productsCollection.doc(product.id).update(product.toFirestore());
+  Future<void> updateProduct(String id, Product product) {
+    return _productsCollection.doc(id).update(product.toFirestore());
   }
 
   Future<void> deleteProduct(String id) {

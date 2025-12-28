@@ -1,102 +1,109 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/models/financial_record.dart';
+import 'package:myapp/services/financial_service.dart';
+import 'package:myapp/widgets/custom_app_bar.dart';
 
-class CreatePage extends StatefulWidget {
-  const CreatePage({super.key});
+class FinancialRecordCreatePage extends StatefulWidget {
+  const FinancialRecordCreatePage({super.key});
 
   @override
-  State<CreatePage> createState() => _CreatePageState();
+  FinancialRecordCreatePageState createState() =>
+      FinancialRecordCreatePageState();
 }
 
-class _CreatePageState extends State<CreatePage> {
+class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  final _typeController = TextEditingController();
   final _amountController = TextEditingController();
-  File? _image;
-  final picker = ImagePicker();
-  final cloudinary = CloudinaryPublic('YOUR_CLOUD_NAME', 'YOUR_UPLOAD_PRESET', cache: false);
-
-
-  Future<void> _getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    setState(() {
-      if (pickedFile != null) {
-        _image = File(pickedFile.path);
-      }
-    });
-  }
-
-  Future<void> _saveWithdrawal() async {
-    if (_formKey.currentState!.validate()) {
-      String? imageUrl;
-      String? publicId;
-
-      if (_image != null) {
-        CloudinaryResponse response = await cloudinary.uploadFile(
-          CloudinaryFile.fromFile(_image!.path, resourceType: CloudinaryResourceType.Image),
-        );
-        imageUrl = response.secureUrl;
-        publicId = response.publicId;
-      }
-
-      await FirebaseFirestore.instance.collection('withdrawals').add({
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'amount': double.parse(_amountController.text),
-        'createdAt': Timestamp.now(),
-        'nota_img': imageUrl,
-        'publicId': publicId,
-      });
-
-      Navigator.pop(context);
-    }
-  }
+  final _descriptionController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Expense'),
-      ),
+      appBar: const CustomAppBar(title: 'Buat Catatan Keuangan'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
               TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (value) => value!.isEmpty ? 'Please enter a title' : null,
-              ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                validator: (value) => value!.isEmpty ? 'Please enter a description' : null,
+                controller: _typeController,
+                decoration: InputDecoration(
+                  labelText: 'Tipe',
+                  labelStyle: GoogleFonts.lato(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan tipe';
+                  }
+                  return null;
+                },
               ),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
+                decoration: InputDecoration(
+                  labelText: 'Jumlah',
+                  labelStyle: GoogleFonts.lato(),
+                ),
                 keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? 'Please enter an amount' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan jumlah';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
-              _image == null
-                  ? const Text('No image selected.')
-                  : Image.file(_image!),
-              ElevatedButton(
-                onPressed: _getImage,
-                child: const Text('Select Image'),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  labelText: 'Deskripsi',
+                  labelStyle: GoogleFonts.lato(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Masukkan deskripsi';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _saveWithdrawal,
-                child: const Text('Save'),
+                onPressed: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (picked != null && picked != _selectedDate) {
+                    setState(() {
+                      _selectedDate = picked;
+                    });
+                  }
+                },
+                child: const Text('Pilih Tanggal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    FinancialService().createFinancialRecord(
+                      FinancialRecord(
+                        id: '',
+                        type: _typeController.text,
+                        amount: double.parse(_amountController.text),
+                        description: _descriptionController.text,
+                        date: _selectedDate,
+                        createdAt: Timestamp.now(),
+                      ),
+                    );
+                    context.pop();
+                  }
+                },
+                child: const Text('Simpan'),
               ),
             ],
           ),
