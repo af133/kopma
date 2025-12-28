@@ -9,15 +9,20 @@ import 'package:provider/provider.dart';
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? actions;
-  final bool showBackButton;
 
-  const CustomAppBar(
-      {super.key, required this.title, this.actions, this.showBackButton = true});
+  // Menghapus `showBackButton` dari konstruktor
+  const CustomAppBar({
+    super.key,
+    required this.title,
+    this.actions,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    final canGoBack = context.canPop();
 
     final List<Widget> allActions = [];
     if (actions != null) {
@@ -27,8 +32,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       IconButton(
         icon: Icon(
           Theme.of(context).brightness == Brightness.dark
-              ? Icons.light_mode
-              : Icons.dark_mode,
+              ? Icons.light_mode_outlined
+              : Icons.dark_mode_outlined,
           color: theme.appBarTheme.foregroundColor,
         ),
         onPressed: () {
@@ -36,26 +41,32 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         },
         tooltip: 'Toggle Theme',
       ),
-      IconButton(
-        icon: Icon(Icons.logout, color: theme.appBarTheme.foregroundColor),
-        onPressed: () async {
-          // Reset tema sebelum logout
-          themeProvider.resetToLightMode();
-          
-          await FirebaseAuth.instance.signOut();
-          if (context.mounted) {
-            context.go(AppRoutes.auth);
-          }
-        },
-        tooltip: 'Logout',
-      ),
+      // Hanya tampilkan tombol logout jika tidak ada tombol kembali
+      // Ini mencegah AppBar menjadi terlalu ramai di halaman detail
+      if (!canGoBack)
+        IconButton(
+          icon: Icon(Icons.logout_rounded, color: theme.appBarTheme.foregroundColor),
+          onPressed: () async {
+            // Reset tema sebelum logout
+            themeProvider.resetToLightMode();
+
+            await FirebaseAuth.instance.signOut();
+            if (context.mounted) {
+              context.go(AppRoutes.auth);
+            }
+          },
+          tooltip: 'Logout',
+        ),
     ]);
 
     return AppBar(
-      leading: showBackButton && context.canPop()
+      // Menggunakan `context.canPop()` untuk secara otomatis menampilkan tombol kembali
+      leading: canGoBack
           ? IconButton(
-              icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor),
+              icon: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: theme.appBarTheme.foregroundColor),
               onPressed: () => context.pop(),
+              tooltip: 'Kembali',
             )
           : null,
       automaticallyImplyLeading: false,
@@ -71,15 +82,15 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           gradient: LinearGradient(
             colors: [
               theme.colorScheme.primary,
-              theme.colorScheme.primaryContainer,
+              theme.colorScheme.secondary,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
       ),
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.5),
+      elevation: 4,
+      shadowColor: theme.shadowColor.withOpacity(0.3),
       actions: allActions,
     );
   }

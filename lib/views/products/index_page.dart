@@ -2,10 +2,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart'; // Import package intl
+import 'package:intl/intl.dart';
 import 'package:myapp/models/product.dart';
 import 'package:myapp/routes/app_router.dart';
-import 'dart:async'; 
+import 'dart:async';
 
 class ProductIndexPage extends StatefulWidget {
   const ProductIndexPage({super.key});
@@ -24,14 +24,18 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
   @override
   void initState() {
     super.initState();
-    
-    _productSubscription = FirebaseFirestore.instance.collection('products').snapshots().listen(
+
+    _productSubscription = FirebaseFirestore.instance
+        .collection('products')
+        .snapshots()
+        .listen(
       (snapshot) {
         if (mounted) {
-          final products = snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
+          final products =
+              snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
           setState(() {
             _allProducts = products;
-            _filterProducts(); 
+            _filterProducts();
             _isLoading = false;
           });
         }
@@ -71,7 +75,8 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final currencyFormatter =
+        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
       body: Padding(
@@ -90,7 +95,8 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.0),
-                  borderSide: BorderSide(color: theme.colorScheme.secondary, width: 2),
+                  borderSide:
+                      BorderSide(color: theme.colorScheme.secondary, width: 2),
                 ),
               ),
             ),
@@ -107,6 +113,7 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
                           ),
                         )
                       : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 80.0), // Padding di bawah
                           itemCount: _filteredProducts.length,
                           itemBuilder: (context, index) {
                             final product = _filteredProducts[index];
@@ -127,30 +134,36 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
                                     fit: BoxFit.cover,
                                     placeholder: (context, url) => Container(
                                       color: Colors.grey[200],
-                                      child: const Icon(Icons.image, color: Colors.grey),
+                                      child: const Icon(Icons.image,
+                                          color: Colors.grey),
                                     ),
-                                    errorWidget: (context, url, error) => Container(
+                                    errorWidget: (context, url, error) =>
+                                        Container(
                                       color: Colors.grey[200],
-                                      child: const Icon(Icons.error, color: Colors.red),
+                                      child: const Icon(Icons.error,
+                                          color: Colors.red),
                                     ),
                                   ),
                                 ),
                                 title: Text(product.name,
-                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                                // --- PERUBAHAN DI SINI ---
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold)),
                                 subtitle: Text(
-                                  currencyFormatter.format(product.price), // Format harga
-                                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
+                                  currencyFormatter.format(product.price),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.primary),
                                 ),
-                                // --- AKHIR PERUBAHAN ---
                                 trailing: IconButton(
                                   icon: const Icon(Icons.edit),
                                   onPressed: () {
-                                    context.push('${AppRoutes.productUpdate}/${product.id}');
+                                    context.push(
+                                        '${AppRoutes.productUpdate}/${product.id}');
                                   },
                                 ),
                                 onTap: () {
-                                  context.push('${AppRoutes.productUpdate}/${product.id}');
+                                  context.push(
+                                      '${AppRoutes.productUpdate}/${product.id}');
                                 },
                               ),
                             );

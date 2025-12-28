@@ -43,16 +43,16 @@ class _MainPageState extends State<MainPage> {
   void _navigateAndCreate() {
     switch (_selectedIndex) {
       case 1:
-        context.go(AppRoutes.scheduleCreate);
+        context.push(AppRoutes.scheduleCreate);
         break;
       case 2:
-        context.go(AppRoutes.keuanganCreate);
+        context.push(AppRoutes.keuanganCreate);
         break;
       case 3:
-        context.go(AppRoutes.penjualanCreate);
+        context.push(AppRoutes.penjualanCreate);
         break;
       case 4:
-        context.go(AppRoutes.produkCreate);
+        context.push(AppRoutes.produkCreate);
         break;
     }
   }
@@ -89,17 +89,22 @@ class _MainPageState extends State<MainPage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+        unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.7),
         backgroundColor: theme.colorScheme.surface,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
       ),
-      floatingActionButton: _selectedIndex > 0
-          ? FloatingActionButton(
+      floatingActionButton: _selectedIndex > 0 && _selectedIndex < 5 // Hanya tampilkan untuk Jadwal, Keuangan, Penjualan, Produk
+          ? FloatingActionButton.extended(
               onPressed: _navigateAndCreate,
-              child: const Icon(Icons.add),
+              icon: const Icon(Icons.add),
+              label: Text('Tambah ${_titles[_selectedIndex]}'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
