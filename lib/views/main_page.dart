@@ -89,7 +89,7 @@ class _MainPageState extends State<MainPage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.7),
+        unselectedItemColor: theme.colorScheme.onSurface.withValues(alpha:0.7),
         backgroundColor: theme.colorScheme.surface,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,

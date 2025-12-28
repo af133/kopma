@@ -39,7 +39,6 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-
   build_ios:
     name: Build iOS
     runs-on: macos-latest
@@ -57,13 +56,14 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Ensure iOS platform 15
+      - name: Set iOS deployment target to 15.0
         run: |
           cd ios
-          if [ ! -f Podfile ]; then
-            pod init
+          if ! grep -q "platform :ios" Podfile; then
+            sed -i '' '1s/^/platform :ios, '"'"'15.0'"'"'\n\n/' Podfile
+          else
+            sed -i '' "s/platform :ios, '.*'/platform :ios, '15.0'/" Podfile
           fi
-          sed -i '' "s/platform :ios, '.*'/platform :ios, '15.0'/" Podfile || echo "platform :ios, '15.0'" >> Podfile
           pod install
           cd ..
 
@@ -73,11 +73,12 @@ jobs:
       - name: Package IPA
         run: |
           cd build/ios/iphoneos
-          mkdir Payload
+          mkdir -p Payload
           mv Runner.app Payload
           zip -r app-release.ipa Payload
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
         with:
           name: app-release-ipa
           path: build/ios/iphoneos/app-release.ipa

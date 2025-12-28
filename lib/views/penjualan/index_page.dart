@@ -1,6 +1,5 @@
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:excel/excel.dart';
-import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +7,9 @@ import 'package:intl/intl.dart';
 import 'package:myapp/models/sale.dart';
 import 'package:myapp/routes/app_router.dart';
 import 'package:myapp/services/sale_service.dart';
-
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:permission_handler/permission_handler.dart';
 class SaleListPage extends StatefulWidget {
   const SaleListPage({super.key});
 
@@ -21,6 +22,7 @@ class _SaleListPageState extends State<SaleListPage> {
   Stream<List<Sale>>? _salesStream;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -46,9 +48,15 @@ class _SaleListPageState extends State<SaleListPage> {
   }
 
   Future<void> _exportToExcel() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mempersiapkan file Excel...')),
-    );
+  setState(() => _isExporting = true);
+
+  try {
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        throw 'Izin penyimpanan ditolak';
+      }
+    }
 
     final sales = await _saleService.getSalesForExport(
       startDate: _startDate,
@@ -56,155 +64,68 @@ class _SaleListPageState extends State<SaleListPage> {
     );
 
     if (sales.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Tidak ada data untuk diekspor.'),
-              backgroundColor: Colors.orange),
-        );
-      }
-      return;
+      throw 'Tidak ada data untuk diekspor';
     }
 
     final excel = Excel.createExcel();
     final sheet = excel[excel.getDefaultSheet()!];
 
-    final headerStyle = CellStyle(
-      bold: true,
-      horizontalAlign: HorizontalAlign.Center,
-      verticalAlign: VerticalAlign.Center,
-    );
+    sheet.appendRow([
+      TextCellValue('Tanggal'),
+      TextCellValue('Produk'),
+      TextCellValue('Harga'),
+      TextCellValue('Jumlah'),
+      TextCellValue('Total'),
+    ]);
 
-    final headerTexts = [
-      'Tanggal Transaksi',
-      'Nama Produk',
-      'Harga Satuan',
-      'Jumlah Terjual',
-      'Total Harga',
-    ];
-
-    sheet.appendRow(headerTexts.map((text) => TextCellValue(text)).toList());
-
-    for (var i = 0; i < headerTexts.length; i++) {
-      sheet
-          .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
-          .cellStyle = headerStyle;
-    }
-
-    final currencyFormatter = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    );
-    final dateTimeFormatter = DateFormat('dd MMM yyyy, HH:mm');
-    num totalQuantity = 0;
-    num totalRevenue = 0;
+    final dateFormat = DateFormat('dd MMM yyyy HH:mm');
 
     for (final sale in sales) {
       sheet.appendRow([
-        TextCellValue(dateTimeFormatter.format(sale.createdAt.toDate())),
+        TextCellValue(dateFormat.format(sale.createdAt.toDate())),
         TextCellValue(sale.name),
-        TextCellValue(currencyFormatter.format(sale.price)),
+        IntCellValue(sale.price.toInt()),
         IntCellValue(sale.quantity),
         IntCellValue(sale.total.toInt()),
       ]);
-      totalQuantity += sale.quantity;
-      totalRevenue += sale.total;
     }
 
-    sheet.appendRow([]);
+    final bytes = excel.encode();
+    if (bytes == null) throw 'Gagal membuat file Excel';
 
-    final totalLabelStyle = CellStyle(
-      bold: true,
-      horizontalAlign: HorizontalAlign.Right,
+    final directory = Platform.isAndroid
+        ? Directory('/storage/emulated/0/Download')
+        : await getApplicationDocumentsDirectory();
+
+    final fileName =
+        'Laporan_Penjualan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+
+    final file = File('${directory.path}/$fileName');
+    await file.writeAsBytes(bytes, flush: true);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('File disimpan di Download'),
+        action: SnackBarAction(
+          label: 'Buka',
+          onPressed: () => OpenFilex.open(file.path),
+        ),
+      ),
     );
-    final totalValueStyle = CellStyle(bold: true);
-    final currencyFormatForTotal = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp ',
-      decimalDigits: 0,
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Gagal export: $e'),
+        backgroundColor: Colors.red,
+      ),
     );
-
-    int rowIndex = sheet.maxRows;
-    sheet.appendRow([
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue('Total Kuantitas:'),
-      IntCellValue(totalQuantity.toInt()),
-    ]);
-    sheet
-        .cell(
-          CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
-        )
-        .cellStyle = totalLabelStyle;
-    sheet
-        .cell(
-          CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex),
-        )
-        .cellStyle = totalValueStyle;
-
-    rowIndex = sheet.maxRows;
-    sheet.appendRow([
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue(''),
-      TextCellValue('Total Pendapatan:'),
-      TextCellValue(currencyFormatForTotal.format(totalRevenue)),
-    ]);
-    sheet
-        .cell(
-          CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
-        )
-        .cellStyle = totalLabelStyle;
-    sheet
-        .cell(
-          CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex),
-        )
-        .cellStyle = totalValueStyle;
-
-    final fileBytes = excel.encode();
-    if (fileBytes == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Gagal membuat file Excel.'),
-              backgroundColor: Colors.red),
-        );
-      }
-      return;
-    }
-
-    try {
-      final now = DateTime.now();
-      final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(now);
-      final fileName = 'Laporan_Penjualan_$formattedDate.xlsx';
-
-      await FileSaver.instance.saveFile(
-        name: fileName,
-        bytes: Uint8List.fromList(fileBytes),
-        mimeType: MimeType.microsoftExcel,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Berhasil diunduh! Silakan cek folder Downloads Anda.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menyimpan file: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+  } finally {
+    setState(() => _isExporting = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +155,8 @@ class _SaleListPageState extends State<SaleListPage> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator.adaptive());
+                    child: CircularProgressIndicator.adaptive(),
+                  );
                 }
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
@@ -244,14 +166,20 @@ class _SaleListPageState extends State<SaleListPage> {
                     child: Text(
                       'Tidak ada data penjualan.',
                       style: GoogleFonts.lato(
-                          fontSize: 16, color: Colors.grey[600]),
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   );
                 }
                 final sales = snapshot.data!;
                 return ListView.builder(
-                  padding:
-                      const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 88.0), // Padding di bawah
+                  padding: const EdgeInsets.fromLTRB(
+                    8.0,
+                    8.0,
+                    8.0,
+                    88.0,
+                  ), // Padding di bawah
                   itemCount: sales.length,
                   itemBuilder: (context, index) {
                     final sale = sales[index];
@@ -284,15 +212,18 @@ class _SaleListPageState extends State<SaleListPage> {
                             Text(
                               '${sale.quantity} item | Total: ${currencyFormatter.format(sale.total)}',
                               style: GoogleFonts.lato(
-                                  fontSize: 14, color: Colors.grey[700]),
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               dateTimeFormatter.format(sale.createdAt.toDate()),
                               style: GoogleFonts.lato(
-                                  color: Colors.grey[500],
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic),
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ],
                         ),
@@ -345,27 +276,43 @@ class _SaleListPageState extends State<SaleListPage> {
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _buildDatePickerField(dateFormatter, 'Mulai', _startDate,
-              (date) => setState(() => _startDate = date)),
-          _buildDatePickerField(dateFormatter, 'Akhir', _endDate,
-              (date) => setState(() => _endDate = date)),
+          _buildDatePickerField(
+            dateFormatter,
+            'Mulai',
+            _startDate,
+            (date) => setState(() => _startDate = date),
+          ),
+          _buildDatePickerField(
+            dateFormatter,
+            'Akhir',
+            _endDate,
+            (date) => setState(() => _endDate = date),
+          ),
           ElevatedButton.icon(
             onPressed: _applyFilter,
             icon: const Icon(Icons.filter_list, size: 20),
             label: const Text('Filter'),
             style: ElevatedButton.styleFrom(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
           ),
           OutlinedButton.icon(
-            onPressed: _exportToExcel,
-            icon: const Icon(Icons.download_outlined, size: 20),
-            label: const Text('Unduh'),
+            onPressed: _isExporting ? null : _exportToExcel,
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_outlined, size: 20),
+            label: Text(_isExporting ? 'Mengekspor...' : 'Unduh'),
             style: OutlinedButton.styleFrom(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
           ),
@@ -380,8 +327,12 @@ class _SaleListPageState extends State<SaleListPage> {
     );
   }
 
-  Widget _buildDatePickerField(DateFormat formatter, String label, DateTime? date,
-      Function(DateTime) onDateChanged) {
+  Widget _buildDatePickerField(
+    DateFormat formatter,
+    String label,
+    DateTime? date,
+    Function(DateTime) onDateChanged,
+  ) {
     return SizedBox(
       width: 140,
       child: InkWell(
@@ -398,12 +349,14 @@ class _SaleListPageState extends State<SaleListPage> {
         },
         child: InputDecorator(
           decoration: InputDecoration(
-              labelText: label,
-              border: const OutlineInputBorder(),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              suffixIcon:
-                  const Icon(Icons.calendar_today_outlined, size: 20)),
+            labelText: label,
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+          ),
           child: Text(
             date != null ? formatter.format(date) : 'Pilih Tanggal',
             style: GoogleFonts.lato(fontSize: 14),
@@ -418,8 +371,9 @@ class _SaleListPageState extends State<SaleListPage> {
       context: context,
       builder: (BuildContext ctx) {
         return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           title: const Text('Konfirmasi Hapus'),
           content: const Text(
             'Apakah Anda yakin ingin menghapus penjualan ini? Stok produk terkait akan dikembalikan.',
@@ -454,7 +408,10 @@ class _SaleListPageState extends State<SaleListPage> {
                   );
                 }
               },
-              child: Text('Hapus', style: TextStyle(color: Colors.red.shade600)),
+              child: Text(
+                'Hapus',
+                style: TextStyle(color: Colors.red.shade600),
+              ),
             ),
           ],
         );

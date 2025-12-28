@@ -90,7 +90,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       elevation: 4,
-      shadowColor: theme.shadowColor.withOpacity(0.3),
+      shadowColor: theme.shadowColor.withValues(alpha:0.3),
       actions: allActions,
     );
   }

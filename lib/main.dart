@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:myapp/providers/theme_provider.dart';
+import 'package:myapp/services/notification_service.dart';
 import 'package:myapp/widgets/connectivity_wrapper.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/routes/app_router.dart';
@@ -15,6 +16,8 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await initializeDateFormatting('id_ID', null);
+  await NotificationService().init();
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => ThemeProvider(),
