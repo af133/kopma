@@ -18,7 +18,7 @@ void main() async {
   runApp(
     ChangeNotifierProvider(
       create: (context) => ThemeProvider(),
-      child: MyApp(auth: FirebaseAuth.instance), 
+      child: MyApp(auth: FirebaseAuth.instance),
     ),
   );
 }
@@ -86,14 +86,17 @@ class MyApp extends StatelessWidget {
 
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        return ConnectivityWrapper(
-          child: MaterialApp.router(
-            title: 'Warung App',
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: themeProvider.themeMode,
-            routerConfig: AppRoutes.getRouter(auth), // Pass the auth instance to the router
-          ),
+        return MaterialApp.router(
+          title: 'Kopma',
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: themeProvider.themeMode,
+          routerConfig: AppRoutes.getRouter(auth), 
+          builder: (context, router) {
+            return ConnectivityWrapper(
+              child: router!,
+            );
+          },
         );
       },
     );

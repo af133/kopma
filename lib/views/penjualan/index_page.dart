@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:myapp/models/sale.dart';
 import 'package:myapp/routes/app_router.dart';
 import 'package:myapp/services/sale_service.dart';
-import 'package:open_file_plus/open_file_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 class SaleListPage extends StatefulWidget {
@@ -121,8 +120,6 @@ class _SaleListPageState extends State<SaleListPage> {
       decimalDigits: 0,
     );
 
-    // --- PERBAIKAN DI SINI ---
-    // Add Total Quantity row and apply style
     int rowIndex = sheet.maxRows;
     sheet.appendRow([
       TextCellValue(''),
@@ -144,8 +141,7 @@ class _SaleListPageState extends State<SaleListPage> {
             .cellStyle =
         totalValueStyle;
 
-    // Add Total Revenue row and apply style
-    rowIndex = sheet.maxRows; // Update rowIndex to the next new row
+    rowIndex = sheet.maxRows;
     sheet.appendRow([
       TextCellValue(''),
       TextCellValue(''),
@@ -177,10 +173,6 @@ class _SaleListPageState extends State<SaleListPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Laporan berhasil diekspor ke $path'),
-          action: SnackBarAction(
-            label: 'Buka',
-            onPressed: () => OpenFile.open(path),
-          ),
         ),
       );
     }
@@ -198,24 +190,22 @@ class _SaleListPageState extends State<SaleListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daftar Penjualan'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.download_rounded),
-            onPressed: _exportToExcel,
-            tooltip: 'Unduh Excel',
-          ),
-        ],
+        title: const Text('Laporan Penjualan'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
       body: Column(
         children: [
           _buildFilterSection(dateFormatter),
+          const Divider(height: 1),
           Expanded(
             child: StreamBuilder<List<Sale>>(
               stream: _salesStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator.adaptive());
                 }
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
@@ -223,30 +213,33 @@ class _SaleListPageState extends State<SaleListPage> {
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Text(
-                      'Tidak ada penjualan pada rentang tanggal ini.',
-                      style: GoogleFonts.lato(),
+                      'Tidak ada data penjualan.',
+                      style: GoogleFonts.lato(
+                        fontSize: 16,
+                        color: Colors.grey[600]
+                      ),
                     ),
                   );
                 }
                 final sales = snapshot.data!;
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
                   itemCount: sales.length,
                   itemBuilder: (context, index) {
                     final sale = sales[index];
                     return Card(
                       margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
+                        horizontal: 8,
+                        vertical: 5,
                       ),
-                      elevation: 2,
+                      elevation: 3,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 8,
+                          vertical: 12,
                         ),
                         title: Text(
                           sale.name,
@@ -259,17 +252,18 @@ class _SaleListPageState extends State<SaleListPage> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             Text(
                               '${sale.quantity} item | Total: ${currencyFormatter.format(sale.total)}',
-                              style: GoogleFonts.lato(fontSize: 14),
+                              style: GoogleFonts.lato(fontSize: 14, color: Colors.grey[700]),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               dateTimeFormatter.format(sale.createdAt.toDate()),
                               style: GoogleFonts.lato(
-                                color: Colors.grey[600],
+                                color: Colors.grey[500],
                                 fontSize: 12,
+                                fontStyle: FontStyle.italic
                               ),
                             ),
                           ],
@@ -279,9 +273,9 @@ class _SaleListPageState extends State<SaleListPage> {
                           children: [
                             IconButton(
                               icon: Icon(
-                                Icons.edit,
-                                color: Colors.blue[700],
-                                size: 22,
+                                Icons.edit_note_rounded,
+                                color: Colors.blue.shade700,
+                                size: 26,
                               ),
                               onPressed: () => context.push(
                                 '${AppRoutes.penjualanUpdate}/${sale.id}',
@@ -290,9 +284,9 @@ class _SaleListPageState extends State<SaleListPage> {
                             ),
                             IconButton(
                               icon: Icon(
-                                Icons.delete,
-                                color: Colors.red[700],
-                                size: 22,
+                                Icons.delete_sweep_rounded,
+                                color: Colors.red.shade700,
+                                size: 26,
                               ),
                               onPressed: () => _confirmDelete(context, sale.id),
                               tooltip: 'Hapus',
@@ -316,102 +310,86 @@ class _SaleListPageState extends State<SaleListPage> {
 
   Widget _buildFilterSection(DateFormat dateFormatter) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Wrap(
+        spacing: 12.0,
+        runSpacing: 8.0,
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () async {
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: _startDate ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (pickedDate != null) {
-                      setState(() {
-                        _startDate = pickedDate;
-                      });
-                    }
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Tanggal Mulai',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    child: Text(
-                      _startDate != null
-                          ? dateFormatter.format(_startDate!)
-                          : 'Pilih tanggal',
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: InkWell(
-                  onTap: () async {
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: _endDate ?? DateTime.now(),
-                      firstDate: _startDate ?? DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (pickedDate != null) {
-                      setState(() {
-                        _endDate = pickedDate;
-                      });
-                    }
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Tanggal Akhir',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    child: Text(
-                      _endDate != null
-                          ? dateFormatter.format(_endDate!)
-                          : 'Pilih tanggal',
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          _buildDatePickerField(dateFormatter, 'Mulai', _startDate, (date) => setState(() => _startDate = date)),
+          _buildDatePickerField(dateFormatter, 'Akhir', _endDate, (date) => setState(() => _endDate = date)),
+          ElevatedButton.icon(
+            onPressed: _applyFilter,
+            icon: const Icon(Icons.filter_list, size: 20),
+            label: const Text('Filter'),
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton.icon(
-                onPressed: _applyFilter,
-                icon: const Icon(Icons.filter_list),
-                label: const Text('Filter'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: _resetFilter,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reset'),
-              ),
-            ],
+          OutlinedButton.icon(
+            onPressed: _exportToExcel,
+            icon: const Icon(Icons.download_outlined, size: 20),
+            label: const Text('Unduh'),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          IconButton(
+            onPressed: _resetFilter,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset Filter',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.grey.shade200
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildDatePickerField(DateFormat formatter, String label, DateTime? date, Function(DateTime) onDateChanged) {
+    return SizedBox(
+      width: 140,
+      child: InkWell(
+        onTap: () async {
+          final pickedDate = await showDatePicker(
+            context: context,
+            initialDate: date ?? DateTime.now(),
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now(),
+          );
+          if (pickedDate != null) {
+            onDateChanged(pickedDate);
+          }
+        },
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20)
+          ),
+          child: Text(
+            date != null
+                ? formatter.format(date)
+                : 'Pilih Tanggal',
+            style: GoogleFonts.lato(fontSize: 14),
+          ),
+        ),
+      ),
+    );
+  }
+
+
   void _confirmDelete(BuildContext context, String saleId) {
     showDialog(
       context: context,
       builder: (BuildContext ctx) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           title: const Text('Konfirmasi Hapus'),
           content: const Text(
             'Apakah Anda yakin ingin menghapus penjualan ini? Stok produk terkait akan dikembalikan.',
@@ -427,17 +405,20 @@ class _SaleListPageState extends State<SaleListPage> {
                   await _saleService.deleteSale(saleId);
                   if (!ctx.mounted) return;
                   Navigator.of(ctx).pop();
+                   ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Penjualan berhasil dihapus."), backgroundColor: Colors.green,),
+                  );
                 } catch (e) {
                   if (ctx.mounted) {
                     Navigator.of(ctx).pop();
                   }
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Gagal menghapus: $e")),
+                    SnackBar(content: Text("Gagal menghapus: $e"), backgroundColor: Colors.red,),
                   );
                 }
               },
-              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+              child: Text('Hapus', style: TextStyle(color: Colors.red.shade600)),
             ),
           ],
         );
