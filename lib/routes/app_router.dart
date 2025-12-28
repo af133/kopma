@@ -10,6 +10,7 @@ import 'package:myapp/views/keuangan/update_page.dart' as keuangan_update;
 import 'package:myapp/views/penjualan/create_page.dart' as penjualan_create;
 import 'package:myapp/views/penjualan/update_page.dart' as penjualan_update;
 import 'package:myapp/views/products/create_page.dart' as produk_create;
+import 'package:myapp/views/products/update_page.dart' as produk_update; // Import halaman update
 import 'package:myapp/views/products/index_page.dart' as produk_index;
 import 'package:myapp/views/splash_screen.dart';
 
@@ -25,7 +26,7 @@ class AppRoutes {
   static const String penjualanUpdate = '/penjualan/update';
   static const String produk = '/produk';
   static const String produkCreate = '/produk/create';
-  static const String produkUpdate = '/produk/update';
+  static const String productUpdate = '/produk/update'; // Tetap gunakan nama yang konsisten
 
   static GoRouter getRouter(FirebaseAuth authInstance) {
     return GoRouter(
@@ -94,6 +95,14 @@ class AppRoutes {
         GoRoute(
           path: AppRoutes.produkCreate,
           builder: (context, state) => const produk_create.ProductCreatePage(),
+        ),
+        // Tambahkan rute untuk update produk
+        GoRoute(
+          path: '${AppRoutes.productUpdate}/:id',
+          builder: (context, state) {
+            final String id = state.pathParameters['id']!;
+            return produk_update.ProductUpdatePage(productId: id);
+          },
         ),
       ],
     );

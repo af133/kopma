@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/views/dashboard_page.dart';
 import 'register_page.dart';
+import 'package:myapp/views/main_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -26,14 +26,14 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardPage()),
+          MaterialPageRoute(builder: (context) => const MainPage()),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Login gagal')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message ?? 'Login gagal')));
     } finally {
       if (mounted) {
         setState(() => loading = false);
@@ -47,7 +47,9 @@ class _LoginPageState extends State<LoginPage> {
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: const NetworkImage("https://images.unsplash.com/photo-1579621970795-87f91d908377?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"),
+            image: const NetworkImage(
+              "https://images.unsplash.com/photo-1579621970795-87f91d908377?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+            ),
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(
               Colors.brown.withAlpha(128),
@@ -94,7 +96,10 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           labelText: 'Email',
                           labelStyle: TextStyle(color: Colors.brown[800]),
-                          prefixIcon: Icon(Icons.email_outlined, color: Colors.brown[800]),
+                          prefixIcon: Icon(
+                            Icons.email_outlined,
+                            color: Colors.brown[800],
+                          ),
                           filled: true,
                           fillColor: Colors.brown[50],
                           border: OutlineInputBorder(
@@ -110,7 +115,10 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           labelText: 'Password',
                           labelStyle: TextStyle(color: Colors.brown[800]),
-                          prefixIcon: Icon(Icons.lock_outline, color: Colors.brown[800]),
+                          prefixIcon: Icon(
+                            Icons.lock_outline,
+                            color: Colors.brown[800],
+                          ),
                           filled: true,
                           fillColor: Colors.brown[50],
                           border: OutlineInputBorder(
@@ -133,7 +141,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           child: loading
                               ? const CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 )
                               : Text(
                                   'Login',
@@ -150,7 +160,9 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const RegisterPage()),
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterPage(),
+                            ),
                           );
                         },
                         child: Text(

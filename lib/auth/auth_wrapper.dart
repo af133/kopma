@@ -1,7 +1,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:myapp/views/dashboard_page.dart';
+import 'package:myapp/views/main_page.dart';
 import 'package:myapp/views/auth/login_page.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -20,7 +20,7 @@ class AuthWrapper extends StatelessWidget {
             return const LoginPage();
           }
           // Jika ada data user, tampilkan halaman Dashboard
-          return const DashboardPage();
+          return const MainPage();
         } else {
           // Selagi stream menunggu koneksi awal, tampilkan loading
           return const Scaffold(

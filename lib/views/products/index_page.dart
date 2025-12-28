@@ -1,6 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 import 'package:myapp/models/product.dart'; // Import model Product
+import 'package:myapp/routes/app_router.dart';
 
 class ProductIndexPage extends StatefulWidget {
   const ProductIndexPage({super.key});
@@ -17,6 +20,13 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
   @override
   void initState() {
     super.initState();
+    // Mendengarkan perubahan pada stream product dan memperbarui UI
+    FirebaseFirestore.instance.collection('products').snapshots().listen((snapshot) {
+      if (mounted) {
+        final products = snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
+        _updateProductList(products);
+      }
+    });
     _searchController.addListener(_filterProducts);
   }
 
@@ -70,28 +80,11 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
               ),
             ),
             const SizedBox(height: 20),
-            // Product List from Firestore
+            // Product List from state
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('products').snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Terjadi kesalahan: ${snapshot.error}'));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text('Belum ada produk.'));
-                  }
-
-                  // Konversi snapshot ke daftar Product dan perbarui state
-                  final products = snapshot.data!.docs
-                      .map((doc) => Product.fromFirestore(doc))
-                      .toList();
-                  _updateProductList(products);
-
-                  return _filteredProducts.isEmpty
+              child: _allProducts.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredProducts.isEmpty
                       ? const Center(
                           child: Text('Produk tidak ditemukan.'),
                         )
@@ -103,35 +96,46 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
                               elevation: 3,
                               margin: const EdgeInsets.symmetric(vertical: 8),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 10, horizontal: 15),
-                                leading: product.imageUrl != null
-                                    ? CircleAvatar(
-                                        backgroundImage: NetworkImage(product.imageUrl!),
-                                        radius: 25,
-                                      )
-                                    : const CircleAvatar(
-                                        radius: 25,
-                                        child: Icon(Icons.inventory_2),
-                                      ),
+                                contentPadding: const EdgeInsets.all(12),
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: CachedNetworkImage(
+                                    imageUrl: product.imageUrl ?? '',
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.image, color: Colors.grey),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.error, color: Colors.red),
+                                    ),
+                                  ),
+                                ),
                                 title: Text(product.name,
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(fontWeight: FontWeight.bold)),
                                 subtitle: Text('Rp ${product.price.toStringAsFixed(0)} - Stok: ${product.stock}'),
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () {
+                                    // Navigasi ke halaman update produk
+                                    context.push('${AppRoutes.productUpdate}/${product.id}');
+                                  },
+                                ),
                                 onTap: () {
-                                  // Aksi ketika produk di-tap, misalnya navigasi ke halaman detail produk
-                                  // context.go('${AppRoutes.productUpdate}/${product.id}');
+                                  // Navigasi juga saat item di-tap
+                                  context.push('${AppRoutes.productUpdate}/${product.id}');
                                 },
                               ),
                             );
                           },
-                        );
-                },
-              ),
+                        ),
             ),
           ],
         ),
