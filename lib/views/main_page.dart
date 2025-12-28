@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:myapp/routes/app_router.dart';
 import 'package:myapp/views/dashboard_page.dart';
 import 'package:myapp/views/jadwal/index_page.dart';
 import 'package:myapp/views/keuangan/index_page.dart';
@@ -21,7 +19,7 @@ class _MainPageState extends State<MainPage> {
   final List<Widget> _pages = [
     const DashboardPage(),
     const ScheduleListPage(),
-    const FinancialRecordListPage(),
+    const FinancialDashboardPage(),
     const SaleListPage(),
     const ProductIndexPage(),
   ];
@@ -38,23 +36,6 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _selectedIndex = index;
     });
-  }
-
-  void _navigateAndCreate() {
-    switch (_selectedIndex) {
-      case 1:
-        context.push(AppRoutes.scheduleCreate);
-        break;
-      case 2:
-        context.push(AppRoutes.keuanganCreate);
-        break;
-      case 3:
-        context.push(AppRoutes.penjualanCreate);
-        break;
-      case 4:
-        context.push(AppRoutes.produkCreate);
-        break;
-    }
   }
 
   @override
@@ -89,22 +70,11 @@ class _MainPageState extends State<MainPage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: theme.colorScheme.onSurface.withValues(alpha:0.7),
+        unselectedItemColor: theme.colorScheme.onSurface.withAlpha(178),
         backgroundColor: theme.colorScheme.surface,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
       ),
-      floatingActionButton: _selectedIndex > 0 && _selectedIndex < 5 // Hanya tampilkan untuk Jadwal, Keuangan, Penjualan, Produk
-          ? FloatingActionButton.extended(
-              onPressed: _navigateAndCreate,
-              icon: const Icon(Icons.add),
-              label: Text('Tambah ${_titles[_selectedIndex]}'),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

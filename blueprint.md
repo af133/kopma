@@ -1,24 +1,40 @@
-# Blueprint Aplikasi Warung
+### Ringkasan
 
-## Ringkasan
+Aplikasi ini adalah aplikasi Flutter lintas platform (Android, iOS, Web) yang berfungsi sebagai dasbor admin internal untuk mengelola berbagai aspek operasional, termasuk:
 
-Aplikasi ini adalah aplikasi Flutter untuk membantu mengelola warung. Aplikasi ini memiliki fitur untuk mengelola jadwal piket, penjualan, produk, dan keuangan.
+*   **Manajemen Produk:** Menambah, melihat, memperbarui, dan menghapus data produk.
+*   **Manajemen Kategori:** Mengelola kategori produk.
+*   **Manajemen Inventaris:** Melacak stok produk.
+*   **Dasbor Keuangan Terpadu:** Memberikan gambaran umum tentang kesehatan keuangan dengan menggabungkan catatan pemasukan (dari data penjualan) dan pengeluaran dalam satu tampilan yang terpadu dan terurut berdasarkan waktu.
 
-## Desain dan Fitur
+### Gaya, Desain, dan Fitur
 
-* **Tema:** Aplikasi ini menggunakan tema Material 3 dengan skema warna berbasis `Colors.brown`. Ada dukungan untuk mode terang dan gelap.
-* **Tipografi:** Menggunakan `google_fonts` dengan `Oswald` untuk teks besar, `Roboto` untuk judul, dan `Open Sans` untuk teks isi.
-* **Navigasi:** Menggunakan `go_router` untuk navigasi antar halaman.
-* **Fitur:**
-    * **Jadwal Piket:** Membuat, membaca, memperbarui, dan menghapus jadwal piket.
-    * **Penjualan:** Membuat, membaca, memperbarui, dan menghapus data penjualan.
-    * **Produk:** Membuat, membaca, memperbarui, dan menghapus data produk.
-    * **Keuangan:** Membuat, membaca, memperbarui, dan menghapus catatan keuangan (pemasukan dan pengeluaran).
-* **Widget Kustom:**
-    * `CustomAppBar`: AppBar kustom yang digunakan di seluruh aplikasi untuk konsistensi.
+*   **Tema:** Menggunakan Material 3 dengan skema warna berbasis `Colors.deepPurple`.
+*   **Tipografi:** Memanfaatkan paket `google_fonts`.
+*   **Navigasi:** Menggunakan `go_router` untuk navigasi berbasis rute.
+*   **Arsitektur:** Mengikuti struktur berbasis fitur (`views`, `services`, `models`).
+*   **UI Components:** Memanfaatkan widget Material standar seperti `Card`, `ListTile`, `FloatingActionButton`, dan `DataTable`.
+*   **Layanan Backend:** Berintegrasi dengan Firebase (Firestore) dan Cloudinary.
 
-## Rencana Saat Ini
+### Rencana Perubahan Saat Ini & Log Perbaikan
 
-- [x] Terapkan tema Material 3 yang konsisten di seluruh aplikasi.
-- [x] Gunakan `CustomAppBar` di semua halaman.
-- [x] Sesuaikan warna dan gaya agar sesuai dengan tema.
+**Tugas: Merombak Halaman Keuangan & Perbaikan Bug Kestabilan Data**
+
+1.  **Pengembangan Awal Dasbor Keuangan:**
+    *   Mengimplementasikan `FinancialDashboardPage` dengan `StreamZip` untuk menggabungkan data pemasukan dan pengeluaran.
+    *   **Status:** Selesai.
+
+2.  **Perbaikan Bug #1: Logika Perhitungan Pendapatan**
+    *   **Masalah:** Ditemukan bahwa total pendapatan harian dihitung secara tidak konsisten.
+    *   **Solusi:** Memperbaiki logika di `FinancialService` untuk menghitung total pendapatan hanya dari data `items`.
+    *   **Status:** Selesai.
+
+3.  **Perbaikan Bug #2: Kestabilan `FinancialService`**
+    *   **Masalah:** Ditemukan bahwa data yang tidak konsisten (misalnya, angka sebagai string) di database menyebabkan seluruh stream gagal, sehingga data tidak muncul.
+    *   **Solusi:** Menambahkan parsing yang kuat (`_parseInt`, `_parseDouble`) dan blok `try-catch` yang lebih baik di dalam `FinancialService`.
+    *   **Status:** Selesai.
+
+4.  **Perbaikan Bug #3: Akar Masalah pada Model Data (Perbaikan Definitif)**
+    *   **Masalah:** Setelah investigasi lebih dalam, ditemukan bahwa akar masalah sebenarnya terletak pada konstruktor `FinancialRecord.fromFirestore` di file model, yang tidak dapat menangani variasi format data (misalnya `cost` sebagai `String`).
+    *   **Solusi:** Merombak total konstruktor `FinancialRecord.fromFirestore` dengan menambahkan *helper function* `_parseDouble` dan `_parseDate`. Ini membuat model menjadi *anti-rapuh* dan mampu mem-parsing data `cost` dan `date` dari berbagai format (`num`, `String`, `Timestamp`) tanpa gagal. Ini memastikan semua data pengeluaran yang valid dapat ditampilkan.
+    *   **Status:** Selesai.

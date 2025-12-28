@@ -149,10 +149,19 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(
                                             fontWeight: FontWeight.bold)),
-                                subtitle: Text(
-                                  currencyFormatter.format(product.price),
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.primary),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      currencyFormatter.format(product.price),
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                          color: theme.colorScheme.primary),
+                                    ),
+                                    Text(
+                                      'Stok: ${product.stock}',
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                  ],
                                 ),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.edit),
@@ -172,6 +181,12 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.push(AppRoutes.produkCreate);
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

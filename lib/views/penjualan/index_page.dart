@@ -256,6 +256,12 @@ class _SaleListPageState extends State<SaleListPage> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.push(AppRoutes.penjualanCreate);
+        },
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
