@@ -5,7 +5,7 @@ import 'package:myapp/views/dashboard_page.dart';
 import 'package:myapp/views/jadwal/index_page.dart';
 import 'package:myapp/views/keuangan/index_page.dart';
 import 'package:myapp/views/penjualan/index_page.dart';
-import 'package:myapp/views/produk/index_page.dart';
+import 'package:myapp/views/products/index_page.dart';
 import 'package:myapp/widgets/custom_app_bar.dart';
 
 class MainPage extends StatefulWidget {
@@ -23,7 +23,7 @@ class _MainPageState extends State<MainPage> {
     const ScheduleListPage(),
     const FinancialRecordListPage(),
     const SaleListPage(),
-    const ProductListPage(),
+    const ProductIndexPage(),
   ];
 
   final List<String> _titles = [
@@ -89,7 +89,7 @@ class _MainPageState extends State<MainPage> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.7),
+        unselectedItemColor: theme.colorScheme.onSurface.withValues(alpha: 0.7),
         backgroundColor: theme.colorScheme.surface,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,

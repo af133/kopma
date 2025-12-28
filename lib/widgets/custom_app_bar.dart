@@ -1,7 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/providers/theme_provider.dart';
+import 'package:myapp/routes/app_router.dart';
 import 'package:provider/provider.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -21,7 +23,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (actions != null) {
       allActions.addAll(actions!);
     }
-    allActions.add(
+    allActions.addAll([
       IconButton(
         icon: Icon(
           themeProvider.themeMode == ThemeMode.dark
@@ -32,7 +34,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         onPressed: () => themeProvider.toggleTheme(),
         tooltip: 'Toggle Theme',
       ),
-    );
+      IconButton(
+        icon: Icon(Icons.logout, color: theme.appBarTheme.foregroundColor),
+        onPressed: () async {
+          await FirebaseAuth.instance.signOut();
+          // ignore: use_build_context_synchronously
+          if (context.mounted) {
+            context.go(AppRoutes.auth);
+          }
+        },
+        tooltip: 'Logout',
+      ),
+    ]);
 
     return AppBar(
       leading: showBackButton && context.canPop()
@@ -62,7 +75,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.5),
+      shadowColor: Colors.black.withValues(alpha: 0.5),
       actions: allActions,
     );
   }

@@ -9,8 +9,8 @@ import 'package:myapp/views/keuangan/create_page.dart' as keuangan_create;
 import 'package:myapp/views/keuangan/update_page.dart' as keuangan_update;
 import 'package:myapp/views/penjualan/create_page.dart' as penjualan_create;
 import 'package:myapp/views/penjualan/update_page.dart' as penjualan_update;
-import 'package:myapp/views/produk/create_page.dart' as produk_create;
-import 'package:myapp/views/produk/index_page.dart' as produk_index;
+import 'package:myapp/views/products/create_page.dart' as produk_create;
+import 'package:myapp/views/products/index_page.dart' as produk_index;
 import 'package:myapp/views/splash_screen.dart';
 
 class AppRoutes {
@@ -89,7 +89,7 @@ class AppRoutes {
         ),
         GoRoute(
           path: AppRoutes.produk,
-          builder: (context, state) => const produk_index.ProductListPage(),
+          builder: (context, state) => const produk_index.ProductIndexPage(),
         ),
         GoRoute(
           path: AppRoutes.produkCreate,
