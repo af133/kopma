@@ -17,7 +17,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     final List<Widget> allActions = [];
     if (actions != null) {
@@ -26,19 +26,23 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     allActions.addAll([
       IconButton(
         icon: Icon(
-          themeProvider.themeMode == ThemeMode.dark
+          Theme.of(context).brightness == Brightness.dark
               ? Icons.light_mode
               : Icons.dark_mode,
           color: theme.appBarTheme.foregroundColor,
         ),
-        onPressed: () => themeProvider.toggleTheme(),
+        onPressed: () {
+          themeProvider.toggleTheme(context);
+        },
         tooltip: 'Toggle Theme',
       ),
       IconButton(
         icon: Icon(Icons.logout, color: theme.appBarTheme.foregroundColor),
         onPressed: () async {
+          // Reset tema sebelum logout
+          themeProvider.resetToLightMode();
+          
           await FirebaseAuth.instance.signOut();
-          // ignore: use_build_context_synchronously
           if (context.mounted) {
             context.go(AppRoutes.auth);
           }

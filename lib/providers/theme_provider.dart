@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light; // Mulai dengan mode terang secara eksplisit
 
   ThemeMode get themeMode => _themeMode;
 
-  void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+  // Mengubah tema berdasarkan kondisi saat ini
+  void toggleTheme(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    _themeMode = isDarkMode ? ThemeMode.light : ThemeMode.dark;
+    notifyListeners();
+  }
+
+  // Mengatur tema kembali ke mode terang (default)
+  void resetToLightMode() {
+    _themeMode = ThemeMode.light;
     notifyListeners();
   }
 
