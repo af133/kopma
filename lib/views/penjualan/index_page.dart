@@ -9,7 +9,6 @@ import 'package:myapp/routes/app_router.dart';
 import 'package:myapp/services/sale_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:permission_handler/permission_handler.dart';
 class SaleListPage extends StatefulWidget {
   const SaleListPage({super.key});
 
@@ -51,13 +50,6 @@ class _SaleListPageState extends State<SaleListPage> {
   setState(() => _isExporting = true);
 
   try {
-    if (Platform.isAndroid) {
-      final status = await Permission.storage.request();
-      if (!status.isGranted) {
-        throw 'Izin penyimpanan ditolak';
-      }
-    }
-
     final sales = await _saleService.getSalesForExport(
       startDate: _startDate,
       endDate: _endDate,
@@ -107,7 +99,7 @@ class _SaleListPageState extends State<SaleListPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('File disimpan di Download'),
+        content: const Text('File berhasil diunduh ke folder Download'),
         action: SnackBarAction(
           label: 'Buka',
           onPressed: () => OpenFilex.open(file.path),
