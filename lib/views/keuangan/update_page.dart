@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:myapp/models/financial_record.dart';
 import 'package:myapp/services/financial_service.dart';
 import 'package:myapp/widgets/custom_app_bar.dart';
@@ -19,26 +20,52 @@ class FinancialRecordUpdatePageState extends State<FinancialRecordUpdatePage> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
-  String _type = 'income';
-  DateTime _selectedDate = DateTime.now();
+  DateTime? _selectedDate;
   bool _isLoading = true;
   late FinancialRecord _record;
 
   @override
   void initState() {
     super.initState();
-    FinancialService().getFinancialRecord(widget.recordId).then((record) {
-      _descriptionController.text = record.description;
-      _amountController.text = record.amount.toString();
+    _loadRecord();
+  }
+
+  Future<void> _loadRecord() async {
+    try {
+      final record = await FinancialService().getFinancialRecord(widget.recordId);
       if (mounted) {
         setState(() {
           _record = record;
-          _type = record.type;
+          _descriptionController.text = record.description;
+          // Convert negative amount to positive for display
+          _amountController.text = record.amount.abs().toStringAsFixed(0);
           _selectedDate = record.date;
           _isLoading = false;
         });
       }
-    });
+    } catch (e) {
+      // Handle error, e.g., show a snackbar or navigate back
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memuat data pengeluaran.')),
+        );
+        context.pop();
+      }
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 
   @override
@@ -52,94 +79,97 @@ class FinancialRecordUpdatePageState extends State<FinancialRecordUpdatePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: const CustomAppBar(title: 'Perbarui Catatan Keuangan'),
+      appBar: const CustomAppBar(title: 'Perbarui Pengeluaran'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
               child: Form(
                 key: _formKey,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     TextFormField(
                       controller: _descriptionController,
-                      decoration: InputDecoration(
-                        labelText: 'Deskripsi',
-                        labelStyle: GoogleFonts.lato(),
+                      decoration: const InputDecoration(
+                        labelText: 'Judul Pengeluaran',
+                        border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Masukkan deskripsi';
+                          return 'Judul pengeluaran tidak boleh kosong.';
                         }
                         return null;
                       },
                     ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText: 'Jumlah',
-                        labelStyle: GoogleFonts.lato(),
+                      decoration: const InputDecoration(
+                        labelText: 'Jumlah Pengeluaran (Rp)',
+                        border: OutlineInputBorder(),
+                        prefixText: 'Rp ',
                       ),
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Masukkan jumlah';
+                          return 'Jumlah pengeluaran tidak boleh kosong.';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Masukkan angka yang valid.';
                         }
                         return null;
                       },
                     ),
-                    DropdownButtonFormField<String>(
-                      initialValue: _type,
-                      decoration: InputDecoration(
-                        labelText: 'Jenis',
-                        labelStyle: GoogleFonts.lato(),
+                    const SizedBox(height: 24),
+                    InkWell(
+                      onTap: () => _selectDate(context),
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Tanggal Pengeluaran',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: <Widget>[
+                            Text(
+                              _selectedDate == null
+                                  ? 'Pilih Tanggal'
+                                  : DateFormat('EEEE, d MMMM y', 'id_ID')
+                                      .format(_selectedDate!),
+                            ),
+                            const Icon(Icons.calendar_today),
+                          ],
+                        ),
                       ),
-                      items: ['income', 'expense']
-                          .map((label) => DropdownMenuItem(
-                                value: label,
-                                child: Text(label),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _type = value!;
-                        });
-                      },
                     ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2101),
-                        );
-                        if (picked != null && picked != _selectedDate) {
-                          setState(() {
-                            _selectedDate = picked;
-                          });
-                        }
-                      },
-                      child: const Text('Pilih Tanggal'),
-                    ),
+                    const SizedBox(height: 32),
                     ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                           if (!mounted) return;
+                          if (!mounted) return;
+                          final amount = double.parse(_amountController.text);
+
                           FinancialService().updateFinancialRecord(
                             FinancialRecord(
                               id: widget.recordId,
                               description: _descriptionController.text,
-                              amount: double.parse(_amountController.text),
-                              type: _type,
-                              date: _selectedDate,
-                              createdAt: _record.createdAt, // Keep original creation date
+                              amount: -amount, // Simpan sebagai nilai negatif
+                              type: 'expense', // Tetap sebagai 'expense'
+                              date: _selectedDate ?? _record.date,
+                              createdAt: _record.createdAt,
                             ),
                           );
                           context.pop();
                         }
                       },
-                      child: const Text('Simpan'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: GoogleFonts.lato(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      child: const Text('Simpan Perubahan'),
                     ),
                   ],
                 ),

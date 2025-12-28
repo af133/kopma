@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/main.dart';
+import 'package:myapp/providers/theme_provider.dart';
 import 'package:provider/provider.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -14,6 +14,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     final List<Widget> allActions = [];
@@ -26,7 +27,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           themeProvider.themeMode == ThemeMode.dark
               ? Icons.light_mode
               : Icons.dark_mode,
-          color: Theme.of(context).appBarTheme.foregroundColor,
+          color: theme.appBarTheme.foregroundColor,
         ),
         onPressed: () => themeProvider.toggleTheme(),
         tooltip: 'Toggle Theme',
@@ -36,22 +37,24 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       leading: showBackButton && context.canPop()
           ? IconButton(
-              icon: Icon(Icons.arrow_back,
-                  color: Theme.of(context).appBarTheme.foregroundColor),
+              icon: Icon(Icons.arrow_back, color: theme.appBarTheme.foregroundColor),
               onPressed: () => context.pop(),
             )
           : null,
       automaticallyImplyLeading: false,
-      title: Text(title,
-          style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).appBarTheme.foregroundColor)),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.bold,
+          color: theme.appBarTheme.foregroundColor,
+        ),
+      ),
       flexibleSpace: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.primaryContainer,
+              theme.colorScheme.primary,
+              theme.colorScheme.primaryContainer,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -59,7 +62,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.5),
+      shadowColor: Colors.black.withOpacity(0.5),
       actions: allActions,
     );
   }

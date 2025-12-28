@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:myapp/providers/theme_provider.dart';
 import 'package:myapp/widgets/connectivity_wrapper.dart';
 import 'package:provider/provider.dart';
 import 'package:myapp/routes/app_router.dart';
@@ -20,22 +21,6 @@ void main() async {
       child: MyApp(auth: FirebaseAuth.instance), 
     ),
   );
-}
-
-class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.system;
-
-  ThemeMode get themeMode => _themeMode;
-
-  void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    notifyListeners();
-  }
-
-  void setSystemTheme() {
-    _themeMode = ThemeMode.system;
-    notifyListeners();
-  }
 }
 
 class MyApp extends StatelessWidget {

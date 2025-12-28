@@ -2,37 +2,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/auth/auth_wrapper.dart';
-import 'package:myapp/views/dashboard_page.dart';
+import 'package:myapp/views/main_page.dart';
 import 'package:myapp/views/jadwal/create_page.dart' as jadwal_create;
-import 'package:myapp/views/jadwal/index_page.dart' as jadwal_index;
 import 'package:myapp/views/jadwal/update_page.dart' as jadwal_update;
 import 'package:myapp/views/keuangan/create_page.dart' as keuangan_create;
-import 'package:myapp/views/keuangan/index_page.dart' as keuangan_index;
 import 'package:myapp/views/keuangan/update_page.dart' as keuangan_update;
 import 'package:myapp/views/penjualan/create_page.dart' as penjualan_create;
-import 'package:myapp/views/penjualan/index_page.dart' as penjualan_index;
 import 'package:myapp/views/penjualan/update_page.dart' as penjualan_update;
-import 'package:myapp/views/products/create_page.dart' as product_create;
-import 'package:myapp/views/products/index_page.dart' as product_index;
-import 'package:myapp/views/products/update_page.dart' as product_update;
+import 'package:myapp/views/produk/create_page.dart' as produk_create;
+import 'package:myapp/views/produk/index_page.dart' as produk_index;
 import 'package:myapp/views/splash_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
   static const String auth = '/auth';
-  static const String dashboard = '/dashboard';
-  static const String scheduleIndex = '/jadwal';
+  static const String main = '/main';
   static const String scheduleCreate = '/jadwal/create';
   static const String scheduleUpdate = '/jadwal/update';
-  static const String keuangan = '/keuangan';
   static const String keuanganCreate = '/keuangan/create';
   static const String keuanganUpdate = '/keuangan/update';
-  static const String penjualan = '/penjualan';
   static const String penjualanCreate = '/penjualan/create';
   static const String penjualanUpdate = '/penjualan/update';
-  static const String product = '/products';
-  static const String productCreate = '/products/create';
-  static const String productUpdate = '/products/update';
+  static const String produk = '/produk';
+  static const String produkCreate = '/produk/create';
+  static const String produkUpdate = '/produk/update';
 
   static GoRouter getRouter(FirebaseAuth authInstance) {
     return GoRouter(
@@ -42,13 +35,13 @@ class AppRoutes {
         final bool loggingIn = state.matchedLocation == AppRoutes.auth;
 
         if (loggedIn && loggingIn) {
-          return AppRoutes.dashboard;
-        } 
+          return AppRoutes.main;
+        }
 
         return null;
       },
       routes: [
-         GoRoute(
+        GoRoute(
           path: AppRoutes.splash,
           builder: (context, state) => const SplashScreen(),
         ),
@@ -57,12 +50,8 @@ class AppRoutes {
           builder: (context, state) => const AuthWrapper(),
         ),
         GoRoute(
-          path: AppRoutes.dashboard,
-          builder: (context, state) => const DashboardPage(),
-        ),
-        GoRoute(
-          path: AppRoutes.scheduleIndex,
-          builder: (context, state) => const jadwal_index.ScheduleListPage(),
+          path: AppRoutes.main,
+          builder: (context, state) => const MainPage(),
         ),
         GoRoute(
             path: AppRoutes.scheduleCreate,
@@ -74,11 +63,6 @@ class AppRoutes {
             final String id = state.pathParameters['id']!;
             return jadwal_update.ScheduleUpdatePage(scheduleId: id);
           },
-        ),
-        GoRoute(
-          path: AppRoutes.keuangan,
-          builder: (context, state) =>
-              const keuangan_index.FinancialRecordListPage(),
         ),
         GoRoute(
           path: AppRoutes.keuanganCreate,
@@ -93,10 +77,6 @@ class AppRoutes {
           },
         ),
         GoRoute(
-          path: AppRoutes.penjualan,
-          builder: (context, state) => const penjualan_index.SaleListPage(),
-        ),
-        GoRoute(
           path: AppRoutes.penjualanCreate,
           builder: (context, state) => const penjualan_create.SaleCreatePage(),
         ),
@@ -108,19 +88,12 @@ class AppRoutes {
           },
         ),
         GoRoute(
-          path: AppRoutes.product,
-          builder: (context, state) => const product_index.ProductIndexPage(),
+          path: AppRoutes.produk,
+          builder: (context, state) => const produk_index.ProductListPage(),
         ),
         GoRoute(
-          path: AppRoutes.productCreate,
-          builder: (context, state) => const product_create.ProductCreatePage(),
-        ),
-        GoRoute(
-          path: '${AppRoutes.productUpdate}/:id',
-          builder: (context, state) {
-            final String id = state.pathParameters['id']!;
-            return product_update.ProductUpdatePage(productId: id);
-          },
+          path: AppRoutes.produkCreate,
+          builder: (context, state) => const produk_create.ProductCreatePage(),
         ),
       ],
     );

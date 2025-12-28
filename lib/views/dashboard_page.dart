@@ -1,35 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/models/schedule.dart';
-import 'package:myapp/routes/app_router.dart';
 import 'package:myapp/services/financial_service.dart';
 import 'package:myapp/services/schedule_service.dart';
-import 'package:myapp/widgets/custom_app_bar.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: const CustomAppBar(title: 'Dashboard Koperasi', showBackButton: false),
-      body: const SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FinancialSummary(),
-              SizedBox(height: 24),
-              ModernScheduleView(),
-              SizedBox(height: 24),
-              ActionButtons(),
-              SizedBox(height: 24),
-            ],
-          ),
+    return const SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FinancialSummary(),
+            SizedBox(height: 24),
+            ModernScheduleView(),
+            SizedBox(height: 24),
+          ],
         ),
       ),
     );
@@ -145,104 +136,6 @@ class _SummaryBox extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class ActionButtons extends StatelessWidget {
-  const ActionButtons({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Aksi Cepat',
-          style: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 2.5, // Adjusted for better text fit
-          children: [
-            _ActionButton(
-              icon: Icons.calendar_today_outlined,
-              label: 'Jadwal',
-              onTap: () => context.go(AppRoutes.scheduleIndex),
-            ),
-            _ActionButton(
-              icon: Icons.receipt_long_outlined,
-              label: 'Keuangan',
-              onTap: () => context.go(AppRoutes.keuangan),
-            ),
-            _ActionButton(
-              icon: Icons.shopping_cart_checkout_outlined,
-              label: 'Penjualan',
-              onTap: () => context.go(AppRoutes.penjualan),
-            ),
-            _ActionButton(
-              icon: Icons.inventory_2_outlined,
-              label: 'Produk',
-              onTap: () => context.go(AppRoutes.product),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(18),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
-              const SizedBox(width: 12),
-              Text(label,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.lato(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
       ),
     );
   }

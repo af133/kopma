@@ -1,8 +1,7 @@
-
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/routes/app_router.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -17,34 +16,30 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        context.go(AppRoutes.dashboard);
-      } else {
-        context.go(AppRoutes.auth);
-      }
+      context.go(AppRoutes.auth);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Image.asset(
+              'assets/logo.png', 
+              width: 150,
+              height: 150,
+            ),
+            const SizedBox(height: 24),
             Text(
-              'Koperasi Mahasiswa',
-              style: TextStyle(
+              'Kopma Fasilkom',
+              style: GoogleFonts.poppins(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              'Fasilkom Universitas Jember',
-              style: TextStyle(
-                fontSize: 18,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ],
