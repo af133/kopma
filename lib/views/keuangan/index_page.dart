@@ -1,14 +1,14 @@
-import 'package:async/async.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/models/daily_income_summary.dart';
 import 'package:myapp/models/financial_event.dart';
 import 'package:myapp/models/financial_record.dart';
+import 'package:myapp/providers/financial_provider.dart';
 import 'package:myapp/services/financial_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/routes/app_router.dart';
-import 'dart:async';
+import 'package:provider/provider.dart';
 
 class FinancialDashboardPage extends StatefulWidget {
   const FinancialDashboardPage({super.key});
@@ -19,79 +19,81 @@ class FinancialDashboardPage extends StatefulWidget {
 
 class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
   final FinancialService _financialService = FinancialService();
-  late final Stream<List<FinancialEvent>> _combinedStream;
+  late final Stream<List<DailyIncomeSummary>> _incomeStream;
 
   @override
   void initState() {
     super.initState();
-    _combinedStream = _createCombinedStream();
+    _incomeStream = _financialService.getDailyIncomeSummaries();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+       if (mounted) { 
+        _refreshData(context);
+       }
+    });
   }
 
-  Stream<List<FinancialEvent>> _createCombinedStream() {
-    Stream<List<DailyIncomeSummary>> incomeStream =
-        _financialService.getDailyIncomeSummaries();
-    Stream<List<FinancialRecord>> expenseStream =
-        _financialService.getFinancialRecords();
-
-    return StreamZip([incomeStream, expenseStream]).map((streams) {
-      final incomes = streams[0] as List<DailyIncomeSummary>;
-      final expenses = streams[1] as List<FinancialRecord>;
-
-      final List<FinancialEvent> combinedList = [...incomes, ...expenses];
-
-      combinedList.sort((a, b) => b.date.compareTo(a.date));
-
-      return combinedList;
-    });
+  Future<void> _refreshData(BuildContext context) async {
+    final provider = Provider.of<FinancialProvider>(context, listen: false);
+    await provider.fetchRecords();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder<List<FinancialEvent>>(
-        stream: _combinedStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator.adaptive());
-          }
-          if (snapshot.hasError) {
-            return Center(
-                child: Text(
-                    'Error: ${snapshot.error}\nSilakan coba lagi nanti.'));
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Text(
-                'Belum ada data keuangan.',
-                style: GoogleFonts.lato(fontSize: 16, color: Colors.grey[600]),
-              ),
-            );
-          }
+      body: RefreshIndicator(
+        onRefresh: () => _refreshData(context),
+        child: Consumer<FinancialProvider>(
+          builder: (context, financialProvider, child) {
+            return StreamBuilder<List<DailyIncomeSummary>>(
+              stream: _incomeStream,
+              builder: (context, incomeSnapshot) {
+                if (financialProvider.isLoading && !incomeSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator.adaptive());
+                }
 
-          final events = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            itemCount: events.length,
-            itemBuilder: (context, index) {
-              final event = events[index];
-              if (event is DailyIncomeSummary) {
-                return _buildIncomeCard(context, event);
-              } else if (event is FinancialRecord) {
-                return _buildExpenseCard(context, event);
-              }
-              return const SizedBox.shrink();
-            },
-          );
-        },
+                if (financialProvider.errorMessage != null) {
+                  return Center(child: Text('Error Provider: ${financialProvider.errorMessage}'));
+                }
+                if (incomeSnapshot.hasError) {
+                  return Center(child: Text('Error Stream: ${incomeSnapshot.error}'));
+                }
+
+                final expenses = financialProvider.records;
+                final incomes = incomeSnapshot.data ?? [];
+
+                if (expenses.isEmpty && incomes.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Belum ada data keuangan.',
+                      style: GoogleFonts.lato(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                  );
+                }
+
+                final List<FinancialEvent> combinedList = [...incomes, ...expenses];
+                combinedList.sort((a, b) => b.date.compareTo(a.date));
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  itemCount: combinedList.length,
+                  itemBuilder: (context, index) {
+                    final event = combinedList[index];
+                    if (event is DailyIncomeSummary) {
+                      return _buildIncomeCard(context, event);
+                    } else if (event is FinancialRecord) {
+                      return _buildExpenseCard(context, event);
+                    }
+                    return const SizedBox.shrink();
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          context.push(AppRoutes.keuanganCreate);
-        },
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: Text('Tambah Pengeluaran',
-            style: GoogleFonts.poppins(color: Colors.white)),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push(AppRoutes.keuanganCreate),
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -201,13 +203,14 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
 
   void _showIncomeDetailsDialog(
       BuildContext context, DailyIncomeSummary summary) {
-    final currencyFormatter =
+    showDialog(
+      context: context,
+      builder: (ctx) {
+          final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final dateFormatter = DateFormat('d MMMM y', 'id_ID');
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
+       return AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
         title: Text('Detail Pemasukan',
@@ -270,18 +273,21 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
               child: const Text('Tutup'),
               onPressed: () => Navigator.of(ctx).pop())
         ],
-      ),
+      );
+      }
     );
   }
 
   void _showExpenseDetailsDialog(BuildContext context, FinancialRecord record) {
-    final currencyFormatter =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final dateFormatter = DateFormat('EEEE, d MMMM y', 'id_ID');
-
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) {
+        final currencyFormatter =
+        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+        final dateFormatter = DateFormat('EEEE, d MMMM y', 'id_ID');
+        final navigator = GoRouter.of(ctx);
+
+        return AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
         title: Text(record.title,
@@ -300,9 +306,8 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
                     icon: const Icon(Icons.image),
                     label: const Text('Lihat Nota'),
                     onPressed: () {
-                      Navigator.of(ctx).pop(); // Close this dialog first
-                      _showImageDialog(context,
-                          record.notaImg!); // Then open the image dialog
+                      navigator.pop(); 
+                      _showImageDialog(context, record.notaImg!);
                     },
                   ),
                 ),
@@ -313,23 +318,24 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.blueGrey),
             onPressed: () {
-              Navigator.of(ctx).pop();
-              context.push('${AppRoutes.keuanganUpdate}/${record.id}');
+              navigator.pop();
+              navigator.push('${AppRoutes.keuanganUpdate}/${record.id}');
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.redAccent),
             onPressed: () {
-              Navigator.of(ctx).pop();
+              navigator.pop();
               _confirmDelete(context, record.id);
             },
           ),
           const Spacer(),
           TextButton(
               child: const Text('Tutup'),
-              onPressed: () => Navigator.of(ctx).pop()),
+              onPressed: () => navigator.pop()),
         ],
-      ),
+      );
+      }
     );
   }
 
@@ -352,50 +358,72 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
 
   void _showImageDialog(BuildContext context, String imageUrl) {
     showDialog(
-        context: context,
-        builder: (BuildContext ctx) {
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InteractiveViewer(
-                  panEnabled: true,
-                  minScale: 0.5,
-                  maxScale: 4,
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Image.asset(
-                        'assets/logo_aplikasi.png',
-                        fit: BoxFit.contain,
-                      );
-                    },
+      context: context,
+      builder: (BuildContext ctx) {
+        return Dialog.fullscreen(
+          backgroundColor: const Color.fromRGBO(0, 0, 0, 0.85),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              InteractiveViewer(
+                panEnabled: true,
+                minScale: 0.8,
+                maxScale: 5,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.white, size: 60),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Gagal memuat gambar',
+                            style: GoogleFonts.lato(color: Colors.white, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 35),
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color.fromRGBO(0, 0, 0, 0.5)
                   ),
                 ),
-                Align(
-                    alignment: Alignment.topRight,
-                    child: IconButton(
-                      icon: const Icon(Icons.close,
-                          color: Colors.white, size: 30),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ))
-              ],
-            ),
-          );
-        });
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
+  // REFACTORED: Properly handles BuildContext across async gaps
   void _confirmDelete(BuildContext context, String recordId) {
     showDialog(
       context: context,
       builder: (BuildContext ctx) {
+        final navigator = Navigator.of(ctx);
         return AlertDialog(
           title: const Text('Konfirmasi Hapus'),
           content: const Text(
@@ -403,12 +431,28 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
           actions: <Widget>[
             TextButton(
                 child: const Text('Batal'),
-                onPressed: () => Navigator.of(ctx).pop()),
+                onPressed: () => navigator.pop()),
             TextButton(
               child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-              onPressed: () {
-                _financialService.deleteFinancialRecord(recordId);
-                Navigator.of(ctx).pop();
+              onPressed: () async {
+                navigator.pop();
+                
+                final provider = Provider.of<FinancialProvider>(context, listen: false);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                try {
+                  await provider.deleteFinancialRecord(recordId);
+
+                  scaffoldMessenger.showSnackBar(const SnackBar(
+                    content: Text('Pengeluaran berhasil dihapus.'),
+                    backgroundColor: Colors.green,
+                  ));
+                } catch (error) {
+                  scaffoldMessenger.showSnackBar(SnackBar(
+                    content: Text('Gagal menghapus: $error'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
               },
             ),
           ],

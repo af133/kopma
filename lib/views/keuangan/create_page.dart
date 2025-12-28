@@ -1,47 +1,68 @@
 import 'dart:io';
+
+import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/models/financial_record.dart';
+import 'package:myapp/providers/financial_provider.dart';
 import 'package:myapp/services/cloudinary_service.dart';
-import 'package:myapp/services/financial_service.dart';
 import 'package:myapp/widgets/custom_app_bar.dart';
+import 'package:provider/provider.dart';
 
 class FinancialRecordCreatePage extends StatefulWidget {
   const FinancialRecordCreatePage({super.key});
 
   @override
-  FinancialRecordCreatePageState createState() =>
+  State<FinancialRecordCreatePage> createState() =>
       FinancialRecordCreatePageState();
 }
 
-class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
+class FinancialRecordCreatePageState
+    extends State<FinancialRecordCreatePage> {
   final _formKey = GlobalKey<FormState>();
+
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _costController = TextEditingController();
+  final _dateController = TextEditingController();
+
   DateTime? _selectedDate;
   XFile? _imageFile;
-  bool _isUploading = false;
+  bool _isSaving = false;
+
   final CloudinaryService _cloudinaryService = CloudinaryService();
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    _dateController.text =
+        DateFormat('EEEE, d MMMM y', 'id_ID').format(_selectedDate!);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _costController.dispose();
+    _dateController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
+    final picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    setState(() {
-      _imageFile = image;
-    });
+
+    if (image != null) {
+      setState(() => _imageFile = image);
+    }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
+  Future<void> _pickDate() async {
+    if (!mounted) return;
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
@@ -49,12 +70,67 @@ class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
       lastDate: DateTime(2101),
       locale: const Locale('id', 'ID'),
     );
-    if (picked != null && picked != _selectedDate) {
+
+    if (picked != null) {
       setState(() {
         _selectedDate = picked;
+        _dateController.text =
+            DateFormat('EEEE, d MMMM y', 'id_ID').format(picked);
       });
     }
   }
+
+  // REFACTORED: Properly handles BuildContext across async gaps
+  Future<void> _saveRecord() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+
+    // Capture context-dependent variables BEFORE the async gap.
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = GoRouter.of(context);
+    final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
+
+    try {
+      String? imageUrl;
+      if (_imageFile != null) {
+        CloudinaryResponse response = await _cloudinaryService.uploadImage(_imageFile!);
+        imageUrl = response.secureUrl;
+      }
+
+      final newRecord = FinancialRecord(
+        id: '',
+        title: _titleController.text,
+        description: _descriptionController.text,
+        cost: double.parse(_costController.text),
+        date: _selectedDate ?? DateTime.now(),
+        notaImg: imageUrl,
+      );
+      
+      await financialProvider.createFinancialRecord(newRecord);
+
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Pengeluaran berhasil disimpan'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      navigator.pop();
+      
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyimpan: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +138,7 @@ class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: const CustomAppBar(title: 'Catat Pengeluaran'),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
           child: Column(
@@ -70,105 +146,87 @@ class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
             children: [
               Text(
                 'Formulir Pengeluaran',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
+
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Judul',
-                  hintText: 'Contoh: Beli Peralatan Kebersihan',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Judul tidak boleh kosong.';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Judul wajib diisi' : null,
               ),
+
               const SizedBox(height: 16),
+
               TextFormField(
                 controller: _descriptionController,
+                maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Deskripsi',
-                  hintText: 'Contoh: Sapu, pel, dan ember',
                   border: OutlineInputBorder(),
                 ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Deskripsi tidak boleh kosong.';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Deskripsi wajib diisi' : null,
               ),
+
               const SizedBox(height: 16),
+
               TextFormField(
                 controller: _costController,
-                decoration: const InputDecoration(
-                  labelText: 'Biaya (Rp)',
-                  hintText: 'Contoh: 50000',
-                  border: OutlineInputBorder(),
-                  prefixText: 'Rp ',
-                ),
                 keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Biaya tidak boleh kosong.';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Masukkan angka yang valid.';
+                decoration: const InputDecoration(
+                  labelText: 'Biaya',
+                  prefixText: 'Rp ',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Biaya wajib diisi';
+                  if (double.tryParse(v) == null) {
+                    return 'Masukkan angka yang valid';
                   }
                   return null;
                 },
               ),
+
               const SizedBox(height: 16),
-              InkWell(
-                onTap: () => _selectDate(context),
-                borderRadius: BorderRadius.circular(8.0),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Tanggal Pengeluaran',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      Text(
-                        _selectedDate == null
-                            ? 'Pilih Tanggal'
-                            : DateFormat('EEEE, d MMMM y', 'id_ID')
-                                .format(_selectedDate!),
-                      ),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
+
+              TextFormField(
+                controller: _dateController,
+                readOnly: true,
+                onTap: _pickDate,
+                decoration: const InputDecoration(
+                  labelText: 'Tanggal Pengeluaran',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_today),
                 ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Tanggal wajib dipilih' : null,
               ),
+
               const SizedBox(height: 16),
+
               _buildImagePicker(),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isUploading ? null : _saveRecord,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: GoogleFonts.lato(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                child: _isUploading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Simpan Pengeluaran'),
-              ),
+              const SizedBox(height: 96),
             ],
           ),
         ),
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: _isSaving ? null : _saveRecord,
+        child: _isSaving
+            ? const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              )
+            : const Icon(Icons.save),
       ),
     );
   }
@@ -179,7 +237,7 @@ class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
       children: [
         Text(
           'Foto Nota (Opsional)',
-          style: GoogleFonts.lato(fontSize: 16, fontWeight: FontWeight.bold),
+          style: GoogleFonts.lato(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -194,20 +252,18 @@ class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
             child: _imageFile != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.file(File(_imageFile!.path), fit: BoxFit.cover),
+                    child: Image.file(
+                      File(_imageFile!.path),
+                      fit: BoxFit.cover,
+                    ),
                   )
-                : Center(
+                : const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset(
-                          'assets/logo_aplikasi.png',
-                          height: 80,
-                          width: 80,
-                          fit: BoxFit.contain,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text('Ketuk untuk memilih gambar',
+                        Icon(Icons.camera_alt, color: Colors.grey, size: 50),
+                        SizedBox(height: 8),
+                        Text('Ketuk untuk memilih gambar',
                             style: TextStyle(color: Colors.grey)),
                       ],
                     ),
@@ -216,39 +272,5 @@ class FinancialRecordCreatePageState extends State<FinancialRecordCreatePage> {
         ),
       ],
     );
-  }
-
-  Future<void> _saveRecord() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isUploading = true;
-      });
-
-      String? imageUrl;
-      if (_imageFile != null) {
-        imageUrl = (await _cloudinaryService.uploadImage(_imageFile!)) as String?;
-      }
-
-      final cost = double.parse(_costController.text);
-      final newRecord = FinancialRecord(
-        id: '', 
-        title: _titleController.text,
-        description: _descriptionController.text,
-        cost: cost,
-        date: _selectedDate ??
-            DateTime.now(), 
-        notaImg: imageUrl,
-      );
-
-      await FinancialService().createFinancialRecord(newRecord);
-
-      setState(() {
-        _isUploading = false;
-      });
-
-      if (mounted) {
-        context.pop();
-      }
-    }
   }
 }

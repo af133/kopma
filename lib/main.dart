@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:myapp/providers/financial_provider.dart';
 import 'package:myapp/providers/theme_provider.dart';
 import 'package:myapp/services/notification_service.dart';
 import 'package:myapp/widgets/connectivity_wrapper.dart';
@@ -19,8 +21,11 @@ void main() async {
   await NotificationService().init();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => ThemeProvider()),
+        ChangeNotifierProvider(create: (context) => FinancialProvider()),
+      ],
       child: MyApp(auth: FirebaseAuth.instance),
     ),
   );
@@ -103,6 +108,14 @@ class MyApp extends StatelessWidget {
           darkTheme: darkTheme,
           themeMode: themeProvider.themeMode,
           routerConfig: AppRoutes.getRouter(auth),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('id', 'ID'),
+          ],
           builder: (context, router) {
             return ConnectivityWrapper(
               child: router!,

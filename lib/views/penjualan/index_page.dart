@@ -85,9 +85,8 @@ class _SaleListPageState extends State<SaleListPage> {
     final bytes = excel.encode();
     if (bytes == null) throw 'Gagal membuat file Excel';
 
-    final directory = Platform.isAndroid
-        ? Directory('/storage/emulated/0/Download')
-        : await getApplicationDocumentsDirectory();
+    final directory = await getExternalStorageDirectory();
+    if (directory == null) throw 'Tidak bisa mengakses penyimpanan';
 
     final fileName =
         'Laporan_Penjualan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
@@ -99,7 +98,7 @@ class _SaleListPageState extends State<SaleListPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('File berhasil diunduh ke folder Download'),
+        content: Text('File tersimpan di:\n${file.path}'),
         action: SnackBarAction(
           label: 'Buka',
           onPressed: () => OpenFilex.open(file.path),
@@ -115,7 +114,7 @@ class _SaleListPageState extends State<SaleListPage> {
       ),
     );
   } finally {
-    setState(() => _isExporting = false);
+    if (mounted) setState(() => _isExporting = false);
   }
 }
 

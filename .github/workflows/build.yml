@@ -39,46 +39,4 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-  build_ios:
-    name: Build iOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
-      - name: Flutter pub get
-        run: flutter pub get
-
-      - name: Set iOS deployment target to 15.0
-        run: |
-          cd ios
-          if ! grep -q "platform :ios" Podfile; then
-            sed -i '' '1s/^/platform :ios, '"'"'15.0'"'"'\n\n/' Podfile
-          else
-            sed -i '' "s/platform :ios, '.*'/platform :ios, '15.0'/" Podfile
-          fi
-          pod install
-          cd ..
-
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
-
-      - name: Package IPA
-        run: |
-          cd build/ios/iphoneos
-          mkdir -p Payload
-          mv Runner.app Payload
-          zip -r app-release.ipa Payload
-
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-ipa
-          path: build/ios/iphoneos/app-release.ipa
+  

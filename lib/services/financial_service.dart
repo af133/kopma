@@ -11,31 +11,30 @@ class FinancialService {
   final String _collectionName = 'financial_records'; // Legacy collection
 
   // *************************************************************************
-  // Expense CRUD Operations ('expense' collection) - ROBUST PARSING
+  // Expense CRUD Operations ('expense' collection) - REBUILT FOR PROVIDER
   // *************************************************************************
 
   Future<void> createFinancialRecord(FinancialRecord record) {
     return _db.collection('expense').add(record.toFirestore());
   }
 
-  Stream<List<FinancialRecord>> getFinancialRecords() {
-    return _db.collection('expense').orderBy('date', descending: true).snapshots().map((snapshot) {
-      final records = <FinancialRecord>[];
-      for (final doc in snapshot.docs) {
-        try {
-          records.add(FinancialRecord.fromFirestore(doc));
-        } catch (e, s) {
-          developer.log(
-            'Failed to parse a financial record doc: ${doc.id}', 
-            error: e, 
-            stackTrace: s, 
-            name: 'FinancialService'
-          );
-          // Skip this corrupted document and continue with the rest
-        }
+  // REFACTORED: Returns a Future instead of a Stream
+  Future<List<FinancialRecord>> getFinancialRecords() async {
+    final snapshot = await _db.collection('expense').orderBy('date', descending: true).get();
+    final records = <FinancialRecord>[];
+    for (final doc in snapshot.docs) {
+      try {
+        records.add(FinancialRecord.fromFirestore(doc));
+      } catch (e, s) {
+        developer.log(
+          'Failed to parse a financial record doc: ${doc.id}', 
+          error: e, 
+          stackTrace: s, 
+          name: 'FinancialService'
+        );
       }
-      return records;
-    });
+    }
+    return records;
   }
 
   Future<FinancialRecord> getFinancialRecord(String id) async {
@@ -55,7 +54,6 @@ class FinancialService {
   // Income Summary from 'sales' collection - REBUILT FOR CORRECT SCHEMA
   // *************************************************************************
 
-  // Helper function for robust parsing of numeric values
   double _parseDouble(dynamic value) {
     if (value is double) return value;
     if (value is int) return value.toDouble();
@@ -79,7 +77,7 @@ class FinancialService {
       final Map<String, List<QueryDocumentSnapshot>> salesByDay = {};
       for (var doc in snapshot.docs) {
         try {
-          final data = doc.data(); // Cast here
+          final data = doc.data();
           if (data['createdAt'] is! Timestamp) continue;
           final timestamp = data['createdAt'] as Timestamp;
           final date = timestamp.toDate();
@@ -154,15 +152,12 @@ class FinancialService {
     DocumentReference withdrawalRef = _db.collection('withdrawals').doc();
     batch.set(withdrawalRef, withdrawal.toFirestore());
     
-    // Legacy support for financial_records
     DocumentReference financialRecordRef = _db.collection(_collectionName).doc();
     batch.set(financialRecordRef, {
       'type': 'withdrawal',
       'amount': -withdrawal.amount,
       'description': withdrawal.description,
-      // PERBAIKAN: Gunakan 'date' dari objek withdrawal
       'date': Timestamp.fromDate(withdrawal.date), 
-      // 'createdAt' untuk record ini, berbeda dari tanggal penarikan
       'createdAt': FieldValue.serverTimestamp(),
     });
     return batch.commit();
@@ -173,7 +168,6 @@ class FinancialService {
     DocumentReference withdrawalRef = _db.collection('withdrawals').doc(withdrawal.id);
     batch.update(withdrawalRef, withdrawal.toFirestore());
     
-    // Legacy support for financial_records
     QuerySnapshot financialRecords = await _db
         .collection(_collectionName)
         .where('description', isEqualTo: withdrawal.description) 
@@ -186,7 +180,6 @@ class FinancialService {
       batch.update(financialRecordRef, {
         'amount': -withdrawal.amount,
         'description': withdrawal.description,
-        // PERBAIKAN: Gunakan 'date' dari objek withdrawal
         'date': Timestamp.fromDate(withdrawal.date),
       });
     }
