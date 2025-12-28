@@ -2,9 +2,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart'; // Import package intl
 import 'package:myapp/models/product.dart';
 import 'package:myapp/routes/app_router.dart';
-import 'dart:async'; // Import dart:async untuk StreamSubscription
+import 'dart:async'; 
 
 class ProductIndexPage extends StatefulWidget {
   const ProductIndexPage({super.key});
@@ -24,14 +25,12 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
   void initState() {
     super.initState();
     
-    // Mulai mendengarkan stream dari Firestore
     _productSubscription = FirebaseFirestore.instance.collection('products').snapshots().listen(
       (snapshot) {
         if (mounted) {
           final products = snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
           setState(() {
             _allProducts = products;
-            // Setelah memperbarui daftar utama, langsung filter kembali
             _filterProducts(); 
             _isLoading = false;
           });
@@ -54,7 +53,6 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
 
   @override
   void dispose() {
-    // Batalkan subscription untuk menghindari memory leak
     _productSubscription.cancel();
     _searchController.removeListener(_filterProducts);
     _searchController.dispose();
@@ -73,13 +71,13 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Search Bar
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -97,7 +95,6 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
               ),
             ),
             const SizedBox(height: 20),
-            // Product List
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -140,7 +137,12 @@ class _ProductIndexPageState extends State<ProductIndexPage> {
                                 ),
                                 title: Text(product.name,
                                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                                subtitle: Text('Rp ${product.price.toStringAsFixed(0)} - Stok: ${product.stock}'),
+                                // --- PERUBAHAN DI SINI ---
+                                subtitle: Text(
+                                  currencyFormatter.format(product.price), // Format harga
+                                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
+                                ),
+                                // --- AKHIR PERUBAHAN ---
                                 trailing: IconButton(
                                   icon: const Icon(Icons.edit),
                                   onPressed: () {

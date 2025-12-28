@@ -1,14 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Sale {
-  String id;
-  String name;
-  int price;
-  int quantity;
-  int total;
-  Timestamp createdAt;
-  String? productId;
-  String? financialRecordId; // Added this field
+  final String id;
+  final String name;
+  final double price;         // Harga jual per item
+  final int quantity;
+  final double total;         // Total harga jual (price * quantity)
+  final Timestamp createdAt;
+  final String? productId;
 
   Sale({
     required this.id,
@@ -18,23 +17,23 @@ class Sale {
     required this.total,
     required this.createdAt,
     this.productId,
-    this.financialRecordId, // Added to constructor
   });
 
+  // Konversi dari dokumen Firestore ke objek Sale
   factory Sale.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Sale(
       id: doc.id,
       name: data['name'] ?? '',
-      price: data['price'] ?? 0,
-      quantity: data['quantity'] ?? 0,
-      total: data['total'] ?? 0,
+      price: (data['price'] as num?)?.toDouble() ?? 0.0,
+      quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+      total: (data['total'] as num?)?.toDouble() ?? 0.0,
       createdAt: data['createdAt'] ?? Timestamp.now(),
-      productId: data['productId'],
-      financialRecordId: data['financialRecordId'], // Added this line
+      productId: data['productId'] as String?,
     );
   }
 
+  // Konversi dari objek Sale ke Map untuk disimpan di Firestore
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
@@ -43,7 +42,6 @@ class Sale {
       'total': total,
       'createdAt': createdAt,
       'productId': productId,
-      'financialRecordId': financialRecordId, // Added this line
     };
   }
 }

@@ -5,91 +5,101 @@ class SaleService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String _collectionName = 'sales';
 
-  // Create
+  // Mendapatkan stream semua penjualan
+  Stream<List<Sale>> getSales({DateTime? startDate, DateTime? endDate}) {
+    Query query = _db.collection(_collectionName).orderBy('createdAt', descending: true);
+
+    if (startDate != null) {
+      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+    }
+    if (endDate != null) {
+      // Add 1 day to endDate to include the entire day
+      final adjustedEndDate = endDate.add(const Duration(days: 1));
+      query = query.where('createdAt', isLessThan: Timestamp.fromDate(adjustedEndDate));
+    }
+
+    return query.snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Sale.fromFirestore(doc)).toList());
+  }
+
+
+  // Mendapatkan satu data penjualan berdasarkan ID
+  Future<Sale> getSale(String id) async {
+    DocumentSnapshot doc = await _db.collection(_collectionName).doc(id).get();
+    return Sale.fromFirestore(doc);
+  }
+
+  // Membuat penjualan baru
   Future<void> createSale(Sale sale) async {
     WriteBatch batch = _db.batch();
 
-    // Create a new financial record and get its ID
-    DocumentReference financialRecordRef = _db.collection('financial_records').doc();
-    batch.set(financialRecordRef, {
-      'type': 'sale',
-      'amount': sale.total,
-      'description': 'Penjualan ${sale.name}',
-      'createdAt': sale.createdAt,
-    });
-    
-    // Set the financialRecordId in the sale object
-    sale.financialRecordId = financialRecordRef.id;
-
+    // 1. Buat dokumen penjualan baru
     DocumentReference saleRef = _db.collection(_collectionName).doc();
     batch.set(saleRef, sale.toFirestore());
 
+    // 2. Jika ada ID produk, kurangi stoknya
     if (sale.productId != null) {
-      DocumentReference productRef = _db.collection('products').doc(sale.productId);
+      DocumentReference productRef = _db.collection('products').doc(sale.productId!);
       batch.update(productRef, {'stock': FieldValue.increment(-sale.quantity)});
     }
 
     await batch.commit();
   }
 
-  // Read
-  Stream<List<Sale>> getSales() {
-    return _db
-        .collection(_collectionName)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Sale.fromFirestore(doc)).toList());
-  }
-
-  // Read by id
-  Future<Sale> getSale(String id) async {
-    final doc = await _db.collection(_collectionName).doc(id).get();
-    return Sale.fromFirestore(doc);
-  }
-
-  // Update
+  // Memperbarui penjualan yang ada
   Future<void> updateSale(Sale sale, int oldQuantity) async {
     WriteBatch batch = _db.batch();
 
+    // 1. Perbarui dokumen penjualan
     DocumentReference saleRef = _db.collection(_collectionName).doc(sale.id);
     batch.update(saleRef, sale.toFirestore());
 
+    // 2. Sesuaikan stok produk jika ada ID produk
     if (sale.productId != null) {
-      DocumentReference productRef = _db.collection('products').doc(sale.productId);
-      int stockDifference = sale.quantity - oldQuantity;
-      batch.update(productRef, {'stock': FieldValue.increment(-stockDifference)});
+      final quantityDifference = oldQuantity - sale.quantity;
+      DocumentReference productRef = _db.collection('products').doc(sale.productId!);
+      batch.update(productRef, {'stock': FieldValue.increment(quantityDifference)});
     }
 
-    // Find and update the corresponding financial record
-    if(sale.financialRecordId != null){
-      DocumentReference financialRecordRef = _db.collection('financial_records').doc(sale.financialRecordId);
-      batch.update(financialRecordRef, {'amount': sale.total});
-    }
-    
     await batch.commit();
   }
 
-  // Delete
+  // Menghapus penjualan
   Future<void> deleteSale(String id) async {
     DocumentReference saleRef = _db.collection(_collectionName).doc(id);
-    DocumentSnapshot saleDoc = await saleRef.get();
-    Sale sale = Sale.fromFirestore(saleDoc);
 
-    WriteBatch batch = _db.batch();
+    await _db.runTransaction((transaction) async {
+      DocumentSnapshot saleSnapshot = await transaction.get(saleRef);
+      if (!saleSnapshot.exists) {
+        throw Exception("Penjualan tidak ditemukan!");
+      }
 
-    batch.delete(saleRef);
+      Sale sale = Sale.fromFirestore(saleSnapshot);
 
-    if (sale.productId != null) {
-      DocumentReference productRef = _db.collection('products').doc(sale.productId);
-      batch.update(productRef, {'stock': FieldValue.increment(sale.quantity)});
+      // 1. Hapus dokumen penjualan
+      transaction.delete(saleRef);
+
+      // 2. Kembalikan stok produk jika ada ID produk
+      if (sale.productId != null) {
+        DocumentReference productRef = _db.collection('products').doc(sale.productId!);
+        transaction.update(productRef, {'stock': FieldValue.increment(sale.quantity)});
+      }
+    });
+  }
+
+  // Helper function to get sales for export
+  Future<List<Sale>> getSalesForExport({DateTime? startDate, DateTime? endDate}) async {
+    Query query = _db.collection(_collectionName).orderBy('createdAt', descending: true);
+
+    if (startDate != null) {
+      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+    }
+    if (endDate != null) {
+      final adjustedEndDate = endDate.add(const Duration(days: 1));
+      query = query.where('createdAt', isLessThan: Timestamp.fromDate(adjustedEndDate));
     }
 
-    if(sale.financialRecordId != null){
-      DocumentReference financialRecordRef = _db.collection('financial_records').doc(sale.financialRecordId);
-      batch.delete(financialRecordRef);
-    }
-
-    await batch.commit();
+    final snapshot = await query.get();
+    return snapshot.docs.map((doc) => Sale.fromFirestore(doc)).toList();
   }
 }

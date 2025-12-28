@@ -43,16 +43,16 @@ class _MainPageState extends State<MainPage> {
   void _navigateAndCreate() {
     switch (_selectedIndex) {
       case 1:
-        context.push(AppRoutes.scheduleCreate);
+        context.go(AppRoutes.scheduleCreate);
         break;
       case 2:
-        context.push(AppRoutes.keuanganCreate);
+        context.go(AppRoutes.keuanganCreate);
         break;
       case 3:
-        context.push(AppRoutes.penjualanCreate);
+        context.go(AppRoutes.penjualanCreate);
         break;
       case 4:
-        context.push(AppRoutes.produkCreate);
+        context.go(AppRoutes.produkCreate);
         break;
     }
   }
