@@ -100,7 +100,7 @@ class _SaleListPageState extends State<SaleListPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('File tersimpan di:\n${file.path}'),
+        content: Text('Bukan file untuk mengunduh $fileName'),
         action: SnackBarAction(
           label: 'Buka',
           onPressed: () => OpenFilex.open(file.path),
@@ -131,13 +131,6 @@ class _SaleListPageState extends State<SaleListPage> {
     final dateFormatter = DateFormat('dd-MM-yyyy');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Laporan Penjualan'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-      ),
       body: Column(
         children: [
           _buildFilterSection(dateFormatter),
@@ -268,9 +261,10 @@ class _SaleListPageState extends State<SaleListPage> {
 
   Widget _buildFilterSection(DateFormat dateFormatter) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
       child: Wrap(
-        spacing: 12.0,
+        spacing: 15.0,
         runSpacing: 8.0,
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,

@@ -37,6 +37,8 @@ dependencies:
   flutter_local_notifications: ^19.5.0
   open_filex: ^4.5.0
   async: ^2.11.0 # Ditambahkan untuk StreamZip
+  universal_html: ^2.3.0
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

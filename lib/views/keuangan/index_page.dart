@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +10,8 @@ import 'package:myapp/providers/financial_provider.dart';
 import 'package:myapp/services/financial_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/routes/app_router.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 class FinancialDashboardPage extends StatefulWidget {
@@ -19,65 +23,162 @@ class FinancialDashboardPage extends StatefulWidget {
 
 class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
   final FinancialService _financialService = FinancialService();
-  late final Stream<List<DailyIncomeSummary>> _incomeStream;
+  late Stream<List<FinancialEvent>> _eventsStream;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _isExporting = false;
 
   @override
   void initState() {
     super.initState();
-    _incomeStream = _financialService.getDailyIncomeSummaries();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-       if (mounted) { 
-        _refreshData(context);
-       }
+    _eventsStream = _financialService.getFinancialEvents();
+  }
+
+  void _applyFilter() {
+    setState(() {
+      _eventsStream = _financialService.getFinancialEvents(
+        startDate: _startDate,
+        endDate: _endDate,
+      );
     });
   }
 
-  Future<void> _refreshData(BuildContext context) async {
-    final provider = Provider.of<FinancialProvider>(context, listen: false);
-    await provider.fetchRecords();
+  void _resetFilter() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+      _eventsStream = _financialService.getFinancialEvents();
+    });
+  }
+
+  Future<void> _exportToExcel() async {
+    setState(() => _isExporting = true);
+
+    try {
+      final events = await _financialService
+          .getFinancialEvents(
+            startDate: _startDate,
+            endDate: _endDate,
+          )
+          .first;
+
+      if (events.isEmpty) {
+        throw 'Tidak ada data untuk diekspor';
+      }
+
+      final excel = Excel.createExcel();
+      final sheet = excel[excel.getDefaultSheet()!];
+
+      sheet.appendRow([
+        TextCellValue('Tanggal'),
+        TextCellValue('Tipe'),
+        TextCellValue('Keterangan'),
+        TextCellValue('Pemasukan'),
+        TextCellValue('Pengeluaran'),
+      ]);
+
+      final dateFormat = DateFormat('dd MMM yyyy');
+
+      for (final event in events) {
+        if (event is DailyIncomeSummary) {
+          final products = event.products
+              .map((p) => '${p.productName} (x${p.quantity})')
+              .join(', ');
+          sheet.appendRow([
+            TextCellValue(dateFormat.format(event.date)),
+            TextCellValue('Pemasukan'),
+            TextCellValue('Penjualan: $products'),
+            DoubleCellValue(event.totalIncome),
+            const DoubleCellValue(0),
+          ]);
+        } else if (event is FinancialRecord) {
+          sheet.appendRow([
+            TextCellValue(dateFormat.format(event.date)),
+            TextCellValue('Pengeluaran'),
+            TextCellValue(event.title),
+            DoubleCellValue(0),
+            DoubleCellValue(event.cost),
+          ]);
+        }
+      }
+      final bytes = excel.encode();
+      if (bytes == null) throw 'Gagal membuat file Excel';
+
+      final directories = await getExternalStorageDirectories(
+          type: StorageDirectory.downloads);
+      final directory = directories?.first;
+      if (directory == null) throw 'Tidak bisa mengakses folder Downloads';
+
+      final fileName =
+          'Laporan_Keuangan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(bytes, flush: true);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Berhasil di unduh $fileName'),
+          action: SnackBarAction(
+            label: 'Buka',
+            onPressed: () => OpenFilex.open(file.path),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal export: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final dateFormatter = DateFormat('dd-MM-yyyy');
+
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () => _refreshData(context),
-        child: Consumer<FinancialProvider>(
-          builder: (context, financialProvider, child) {
-            return StreamBuilder<List<DailyIncomeSummary>>(
-              stream: _incomeStream,
-              builder: (context, incomeSnapshot) {
-                if (financialProvider.isLoading && !incomeSnapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator.adaptive());
+      body: Column(
+        children: [
+          _buildFilterSection(dateFormatter),
+          const Divider(height: 1),
+          Expanded(
+            child: StreamBuilder<List<FinancialEvent>>(
+              stream: _eventsStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator.adaptive());
                 }
 
-                if (financialProvider.errorMessage != null) {
-                  return Center(child: Text('Error Provider: ${financialProvider.errorMessage}'));
-                }
-                if (incomeSnapshot.hasError) {
-                  return Center(child: Text('Error Stream: ${incomeSnapshot.error}'));
+                if (snapshot.hasError) {
+                  return Center(
+                      child: Text('Error Stream: ${snapshot.error}'));
                 }
 
-                final expenses = financialProvider.records;
-                final incomes = incomeSnapshot.data ?? [];
+                final events = snapshot.data ?? [];
 
-                if (expenses.isEmpty && incomes.isEmpty) {
+                if (events.isEmpty) {
                   return Center(
                     child: Text(
-                      'Belum ada data keuangan.',
-                      style: GoogleFonts.lato(fontSize: 16, color: Colors.grey[600]),
+                      'Belum ada data keuangan untuk rentang yang dipilih.',
+                      style: GoogleFonts.lato(
+                          fontSize: 16, color: Colors.grey[600]),
                     ),
                   );
                 }
 
-                final List<FinancialEvent> combinedList = [...incomes, ...expenses];
-                combinedList.sort((a, b) => b.date.compareTo(a.date));
-
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  itemCount: combinedList.length,
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
+                  itemCount: events.length,
                   itemBuilder: (context, index) {
-                    final event = combinedList[index];
+                    final event = events[index];
                     if (event is DailyIncomeSummary) {
                       return _buildIncomeCard(context, event);
                     } else if (event is FinancialRecord) {
@@ -87,13 +188,110 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
                   },
                 );
               },
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(AppRoutes.keuanganCreate),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection(DateFormat dateFormatter) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Wrap(
+        spacing: 12.0,
+        runSpacing: 8.0,
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _buildDatePickerField(
+            dateFormatter,
+            'Mulai',
+            _startDate,
+            (date) => setState(() => _startDate = date),
+          ),
+          _buildDatePickerField(
+            dateFormatter,
+            'Akhir',
+            _endDate,
+            (date) => setState(() => _endDate = date),
+          ),
+          ElevatedButton.icon(
+            onPressed: _applyFilter,
+            icon: const Icon(Icons.filter_list, size: 20),
+            label: const Text('Filter'),
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: _isExporting ? null : _exportToExcel,
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_outlined, size: 20),
+            label: Text(_isExporting ? 'Mengekspor...' : 'Unduh'),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          IconButton(
+            onPressed: _resetFilter,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset Filter',
+            style: IconButton.styleFrom(backgroundColor: Colors.grey.shade200),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDatePickerField(
+    DateFormat formatter,
+    String label,
+    DateTime? date,
+    Function(DateTime) onDateChanged,
+  ) {
+    return SizedBox(
+      width: 140,
+      child: InkWell(
+        onTap: () async {
+          final pickedDate = await showDatePicker(
+            context: context,
+            initialDate: date ?? DateTime.now(),
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now(),
+          );
+          if (pickedDate != null) {
+            onDateChanged(pickedDate);
+          }
+        },
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+          ),
+          child: Text(
+            date != null ? formatter.format(date) : 'Pilih Tanggal',
+            style: GoogleFonts.lato(fontSize: 14),
+          ),
+        ),
       ),
     );
   }
@@ -212,7 +410,8 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
                         height: 150,
                         color: Colors.grey[200],
                         child: const Center(
-                          child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                          child: Icon(Icons.broken_image,
+                              color: Colors.grey, size: 40),
                         ),
                       );
                     },
@@ -249,78 +448,78 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
   void _showIncomeDetailsDialog(
       BuildContext context, DailyIncomeSummary summary) {
     showDialog(
-      context: context,
-      builder: (ctx) {
-          final currencyFormatter =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final dateFormatter = DateFormat('d MMMM y', 'id_ID');
+        context: context,
+        builder: (ctx) {
+          final currencyFormatter = NumberFormat.currency(
+              locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+          final dateFormatter = DateFormat('d MMMM y', 'id_ID');
 
-       return AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
-        title: Text('Detail Pemasukan',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(dateFormatter.format(summary.date),
-                  style: GoogleFonts.lato(
-                      fontStyle: FontStyle.italic, color: Colors.grey[600])),
-              const Divider(thickness: 1, height: 20),
-              DataTable(
-                columnSpacing: 20,
-                columns: const [
-                  DataColumn(
-                      label: Text('Produk',
-                          style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text('Jml',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      numeric: true),
-                  DataColumn(
-                      label: Text('Total',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      numeric: true),
-                ],
-                rows: summary.products
-                    .map((p) => DataRow(
-                          cells: [
-                            DataCell(Text(p.productName)),
-                            DataCell(Text(p.quantity.toString())),
-                            DataCell(
-                                Text(currencyFormatter.format(p.totalRevenue))),
-                          ],
-                        ))
-                    .toList(),
-              ),
-              const Divider(thickness: 1, height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15.0)),
+            title: Text('Detail Pemasukan',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Total Pemasukan',
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(currencyFormatter.format(summary.totalIncome),
+                  Text(dateFormatter.format(summary.date),
                       style: GoogleFonts.lato(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.green[700])),
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[600])),
+                  const Divider(thickness: 1, height: 20),
+                  DataTable(
+                    columnSpacing: 20,
+                    columns: const [
+                      DataColumn(
+                          label: Text('Produk',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Jml',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          numeric: true),
+                      DataColumn(
+                          label: Text('Total',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          numeric: true),
+                    ],
+                    rows: summary.products
+                        .map((p) => DataRow(
+                              cells: [
+                                DataCell(Text(p.productName)),
+                                DataCell(Text(p.quantity.toString())),
+                                DataCell(Text(
+                                    currencyFormatter.format(p.totalRevenue))),
+                              ],
+                            ))
+                        .toList(),
+                  ),
+                  const Divider(thickness: 1, height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Pemasukan',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(currencyFormatter.format(summary.totalIncome),
+                          style: GoogleFonts.lato(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.green[700])),
+                    ],
+                  )
                 ],
-              )
+              ),
+            ),
+            actions: [
+              TextButton(
+                  child: const Text('Tutup'),
+                  onPressed: () => Navigator.of(ctx).pop())
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              child: const Text('Tutup'),
-              onPressed: () => Navigator.of(ctx).pop())
-        ],
-      );
-      }
-    );
+          );
+        });
   }
 
   void _showImageDialog(BuildContext context, String imageUrl) {
@@ -355,11 +554,13 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.white, size: 60),
+                          const Icon(Icons.error_outline,
+                              color: Colors.white, size: 60),
                           const SizedBox(height: 16),
                           Text(
                             'Gagal memuat gambar',
-                            style: GoogleFonts.lato(color: Colors.white, fontSize: 16),
+                            style: GoogleFonts.lato(
+                                color: Colors.white, fontSize: 16),
                           ),
                         ],
                       ),
@@ -374,8 +575,7 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
                   icon: const Icon(Icons.close, color: Colors.white, size: 35),
                   onPressed: () => Navigator.of(context).pop(),
                   style: IconButton.styleFrom(
-                    backgroundColor: const Color.fromRGBO(0, 0, 0, 0.5)
-                  ),
+                      backgroundColor: const Color.fromRGBO(0, 0, 0, 0.5)),
                 ),
               ),
             ],
@@ -385,26 +585,26 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
     );
   }
 
-  // REFACTORED: Properly handles BuildContext across async gaps
   void _confirmDelete(BuildContext context, String recordId) {
     showDialog(
       context: context,
       builder: (BuildContext ctx) {
-        final navigator = Navigator.of(ctx);
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           title: const Text('Konfirmasi Hapus'),
           content: const Text(
               'Apakah Anda yakin ingin menghapus catatan pengeluaran ini?'),
           actions: <Widget>[
             TextButton(
                 child: const Text('Batal'),
-                onPressed: () => navigator.pop()),
+                onPressed: () => Navigator.of(ctx).pop()),
             TextButton(
               child: const Text('Hapus', style: TextStyle(color: Colors.red)),
               onPressed: () async {
-                navigator.pop();
-                
-                final provider = Provider.of<FinancialProvider>(context, listen: false);
+                Navigator.of(ctx).pop();
+
+                final provider =
+                    Provider.of<FinancialProvider>(context, listen: false);
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
 
                 try {

@@ -2,39 +2,77 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myapp/models/daily_income_summary.dart';
+import 'package:myapp/models/financial_event.dart';
 import 'package:myapp/models/financial_record.dart';
 import 'package:myapp/models/sold_product.dart';
-import 'package:myapp/models/withdrawal.dart';
+import 'package:rxdart/rxdart.dart';
 
 class FinancialService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String _collectionName = 'financial_records'; // Legacy collection
 
-  // *************************************************************************
-  // Expense CRUD Operations ('expense' collection) - REBUILT FOR PROVIDER
-  // *************************************************************************
+  Stream<List<FinancialEvent>> getFinancialEvents({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    Stream<List<DailyIncomeSummary>> incomeStream = getDailyIncomeSummaries(
+      startDate: startDate,
+      endDate: endDate,
+    );
+    Stream<List<FinancialRecord>> expenseStream = getFinancialRecords(
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    return Rx.combineLatest2(
+      incomeStream,
+      expenseStream,
+      (List<DailyIncomeSummary> incomes, List<FinancialRecord> expenses) {
+        final List<FinancialEvent> combined = [ ...incomes, ...expenses ];
+        combined.sort((a, b) => b.date.compareTo(a.date));
+        return combined;
+      },
+    );
+  }
+
+    Stream<Map<String, double>> getFinancialSummary() {
+    return getFinancialEvents().map((events) {
+      double annualIncome = 0;
+      double annualExpense = 0;
+
+      for (var event in events) {
+        if (event is DailyIncomeSummary) {
+          annualIncome += event.totalIncome;
+        } else if (event is FinancialRecord) {
+          annualExpense += event.cost;
+        }
+      }
+      
+      double totalBalance = annualIncome - annualExpense;
+
+      return {
+        'annualIncome': annualIncome,
+        'annualExpense': annualExpense,
+        'totalBalance': totalBalance,
+      };
+    });
+  }
+
 
   Future<void> createFinancialRecord(FinancialRecord record) {
     return _db.collection('expense').add(record.toFirestore());
   }
 
-  // REFACTORED: Returns a Future instead of a Stream
-  Future<List<FinancialRecord>> getFinancialRecords() async {
-    final snapshot = await _db.collection('expense').orderBy('date', descending: true).get();
-    final records = <FinancialRecord>[];
-    for (final doc in snapshot.docs) {
-      try {
-        records.add(FinancialRecord.fromFirestore(doc));
-      } catch (e, s) {
-        developer.log(
-          'Failed to parse a financial record doc: ${doc.id}', 
-          error: e, 
-          stackTrace: s, 
-          name: 'FinancialService'
-        );
-      }
+  Stream<List<FinancialRecord>> getFinancialRecords({DateTime? startDate, DateTime? endDate}) {
+    Query query = _db.collection('expense').orderBy('date', descending: true);
+    if (startDate != null) {
+      query = query.where('date', isGreaterThanOrEqualTo: startDate);
     }
-    return records;
+    if (endDate != null) {
+      query = query.where('date', isLessThanOrEqualTo: endDate.add(const Duration(days: 1)));
+    }
+    return query.snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => FinancialRecord.fromFirestore(doc))
+        .toList());
   }
 
   Future<FinancialRecord> getFinancialRecord(String id) async {
@@ -50,10 +88,6 @@ class FinancialService {
     return _db.collection('expense').doc(id).delete();
   }
 
-  // *************************************************************************
-  // Income Summary from 'sales' collection - REBUILT FOR CORRECT SCHEMA
-  // *************************************************************************
-
   double _parseDouble(dynamic value) {
     if (value is double) return value;
     if (value is int) return value.toDouble();
@@ -68,8 +102,19 @@ class FinancialService {
     return 0;
   }
 
-  Stream<List<DailyIncomeSummary>> getDailyIncomeSummaries() {
-    return _db.collection('sales').orderBy('createdAt', descending: true).snapshots().map((snapshot) {
+  Stream<List<DailyIncomeSummary>> getDailyIncomeSummaries({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    Query query = _db.collection('sales').orderBy('createdAt', descending: true);
+    if (startDate != null) {
+      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+    }
+    if (endDate != null) {
+      query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate.add(const Duration(days: 1))));
+    }
+
+    return query.snapshots().map((snapshot) {
       if (snapshot.docs.isEmpty) {
         return [];
       }
@@ -78,7 +123,7 @@ class FinancialService {
       for (var doc in snapshot.docs) {
         try {
           final data = doc.data();
-          if (data['createdAt'] is! Timestamp) continue;
+          if (data is! Map<String, dynamic> || data['createdAt'] is! Timestamp) continue;
           final timestamp = data['createdAt'] as Timestamp;
           final date = timestamp.toDate();
           final dayKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -139,76 +184,6 @@ class FinancialService {
       summaries.sort((a, b) => b.date.compareTo(a.date));
 
       return summaries;
-    });
-  }
-
-
-  // *************************************************************************
-  // Withdrawal and Legacy Financial Summary Functions - CORRECTED
-  // *************************************************************************
-
-  Future<void> addWithdrawal(Withdrawal withdrawal) {
-    WriteBatch batch = _db.batch();
-    DocumentReference withdrawalRef = _db.collection('withdrawals').doc();
-    batch.set(withdrawalRef, withdrawal.toFirestore());
-    
-    DocumentReference financialRecordRef = _db.collection(_collectionName).doc();
-    batch.set(financialRecordRef, {
-      'type': 'withdrawal',
-      'amount': -withdrawal.amount,
-      'description': withdrawal.description,
-      'date': Timestamp.fromDate(withdrawal.date), 
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    return batch.commit();
-  }
-
-  Future<void> updateWithdrawal(Withdrawal withdrawal) async {
-    WriteBatch batch = _db.batch();
-    DocumentReference withdrawalRef = _db.collection('withdrawals').doc(withdrawal.id);
-    batch.update(withdrawalRef, withdrawal.toFirestore());
-    
-    QuerySnapshot financialRecords = await _db
-        .collection(_collectionName)
-        .where('description', isEqualTo: withdrawal.description) 
-        .where('type', isEqualTo: 'withdrawal')
-        .limit(1)
-        .get();
-        
-    if (financialRecords.docs.isNotEmpty) {
-      DocumentReference financialRecordRef = financialRecords.docs.first.reference;
-      batch.update(financialRecordRef, {
-        'amount': -withdrawal.amount,
-        'description': withdrawal.description,
-        'date': Timestamp.fromDate(withdrawal.date),
-      });
-    }
-    await batch.commit();
-  }
-
-  Stream<Map<String, double>> getFinancialSummary() {
-    return _db.collection(_collectionName).snapshots().map((snapshot) {
-      double annualIncome = 0;
-      double annualExpense = 0;
-      double totalBalance = 0;
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final amount = (data['amount'] as num).toDouble();
-        totalBalance += amount;
-        if (data.containsKey('type')) {
-            final recordType = data['type'];
-            if (recordType == 'sale' || recordType == 'income') {
-              annualIncome += amount;
-            } else if (recordType == 'withdrawal' || recordType == 'expense') {
-              annualExpense += amount.abs(); 
-            }
-        }
-      }
-      return {
-        'annualIncome': annualIncome,
-        'annualExpense': annualExpense,
-        'totalBalance': totalBalance,
-      };
     });
   }
 }
