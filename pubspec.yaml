@@ -39,6 +39,7 @@ dependencies:
   async: ^2.11.0 # Ditambahkan untuk StreamZip
   universal_html: ^2.3.0
   rxdart: ^0.28.0
+  fl_chart: ^1.1.1
 
 dev_dependencies:
   flutter_test:

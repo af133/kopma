@@ -10,6 +10,65 @@ import 'package:rxdart/rxdart.dart';
 class FinancialService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+   Stream<Map<String, double>> getWeeklySalesData() {
+    return _db
+        .collection('sales')
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 7))))
+        .snapshots()
+        .map((snapshot) {
+      final salesByDay = <String, double>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final timestamp = data['createdAt'] as Timestamp;
+        final date = timestamp.toDate();
+        final dayKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        final total = _parseDouble(data['total']);
+
+        salesByDay.update(dayKey, (value) => value + total, ifAbsent: () => total);
+      }
+      return salesByDay;
+    });
+  }
+
+  Stream<List<SoldProduct>> getTopSellingProducts() {
+  return _db
+      .collection('sales')
+      .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 30))))
+      .snapshots()
+      .map((snapshot) {
+    final Map<String, SoldProduct> productSales = {};
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+        final productName = data['name'] as String?;
+        final quantity = _parseInt(data['quantity']);
+        final revenue = _parseDouble(data['total']);
+
+        if (productName == null || quantity <= 0) continue;
+
+        productSales.update(
+          productName,
+          (existing) => SoldProduct(
+            productName: productName,
+            quantity: existing.quantity + quantity,
+            totalRevenue: existing.totalRevenue + revenue,
+          ),
+          ifAbsent: () => SoldProduct(
+            productName: productName,
+            quantity: quantity,
+            totalRevenue: revenue,
+          ),
+        );
+    }
+
+    final sortedProducts = productSales.values.toList()
+      ..sort((a, b) => b.quantity.compareTo(a.quantity));
+
+    return sortedProducts.take(5).toList();
+  });
+}
+
+
   Stream<List<FinancialEvent>> getFinancialEvents({
     DateTime? startDate,
     DateTime? endDate,

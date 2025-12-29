@@ -1,7 +1,9 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/models/schedule.dart';
+import 'package:myapp/models/sold_product.dart';
 import 'package:myapp/services/financial_service.dart';
 import 'package:myapp/services/schedule_service.dart';
 
@@ -17,6 +19,10 @@ class DashboardPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FinancialSummary(),
+            SizedBox(height: 24),
+            WeeklySalesChart(),
+            SizedBox(height: 24),
+            TopSellingProducts(),
             SizedBox(height: 24),
             ModernScheduleView(),
             SizedBox(height: 24),
@@ -140,6 +146,212 @@ class _SummaryBox extends StatelessWidget {
     );
   }
 }
+
+class WeeklySalesChart extends StatelessWidget {
+  const WeeklySalesChart({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final financialService = FinancialService();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+         Text(
+          'Grafik Penjualan (7 Hari Terakhir)',
+          style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          height: 250,
+          padding: const EdgeInsets.all(16),
+           decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(20),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: StreamBuilder<Map<String, double>>(
+            stream: financialService.getWeeklySalesData(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('Belum ada data penjualan minggu ini.'));
+              }
+
+              final salesData = snapshot.data!;
+              final today = DateTime.now();
+              final chartData = <int, double>{};
+              double maxY = 0;
+
+              for (int i = 6; i >= 0; i--) {
+                final date = today.subtract(Duration(days: i));
+                final dayKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                final value = salesData[dayKey] ?? 0;
+                chartData[6-i] = value;
+                if(value > maxY) maxY = value;
+              }
+              
+              maxY = maxY == 0 ? 100000 : (maxY * 1.2);
+
+              return BarChart(
+                BarChartData(
+                  maxY: maxY,
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final day = DateFormat.E('id_ID').format(today.subtract(Duration(days: 6 - group.x.toInt())));
+                        final amount = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(rod.toY);
+                        return BarTooltipItem(
+                          '$day\n$amount',
+                          GoogleFonts.lato(color: Colors.white, fontWeight: FontWeight.bold),
+                        );
+                      },
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final day = DateFormat.E('id_ID').format(today.subtract(Duration(days: 6 - value.toInt()))).substring(0,3);
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(day, style: GoogleFonts.lato(fontSize: 12)),
+                          );
+                        },
+                        reservedSize: 30,
+                      ),
+                    ),
+                     leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                         getTitlesWidget: (value, meta) {
+                           if (value == 0 || value >= maxY) return const SizedBox();
+                          return Text(
+                            '${(value / 1000).toStringAsFixed(0)}k', 
+                             style: GoogleFonts.lato(fontSize: 11),
+                          );
+                        },
+                        reservedSize: 40,
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: chartData.entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value,
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 20,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(6),
+                            topRight: Radius.circular(6),
+                          )
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class TopSellingProducts extends StatelessWidget {
+  const TopSellingProducts({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final financialService = FinancialService();
+
+    return Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Produk Terlaris (30 Hari Terakhir)',
+          style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(20),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: StreamBuilder<List<SoldProduct>>(
+            stream: financialService.getTopSellingProducts(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator.adaptive());
+              }
+              if (snapshot.data!.isEmpty) {
+                return const Center(child: Text('Belum ada produk yang terjual.'));
+              }
+              
+              final products = snapshot.data!;
+
+              return Column(
+                children: products.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final product = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(50),
+                          child: Text('${index + 1}', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(product.productName, style: GoogleFonts.lato(fontSize: 16), overflow: TextOverflow.ellipsis,),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('${product.quantity}x', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 class ModernScheduleView extends StatefulWidget {
   const ModernScheduleView({super.key});
