@@ -119,7 +119,7 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Berhasil di unduh $fileName'),
+          content: Text('Open file $fileName untuk mengunduh'),
           action: SnackBarAction(
             label: 'Buka',
             onPressed: () => OpenFilex.open(file.path),
