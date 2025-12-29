@@ -152,50 +152,95 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
   Widget _buildExpenseCard(BuildContext context, FinancialRecord record) {
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final dateFormatter = DateFormat('EEEE, d MMMM y', 'id_ID');
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 4,
       color: Colors.red[50],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _showExpenseDetailsDialog(context, record),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                record.title,
-                style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red[800]),
-                overflow: TextOverflow.ellipsis,
-              ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              record.title,
+              style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red[800]),
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (record.description.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                currencyFormatter.format(record.cost),
-                style: GoogleFonts.lato(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.red[700]),
+                record.description,
+                style: GoogleFonts.lato(color: Colors.black87, fontSize: 14),
               ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Text(
-                  dateFormatter.format(record.date),
-                  style: GoogleFonts.lato(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              currencyFormatter.format(record.cost),
+              style: GoogleFonts.lato(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.red[700]),
+            ),
+            if (record.notaImg != null && record.notaImg!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => _showImageDialog(context, record.notaImg!),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: Image.network(
+                    record.notaImg!,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 150,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: CircularProgressIndicator.adaptive(),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 150,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
-          ),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                  tooltip: 'Edit',
+                  onPressed: () {
+                    context.push('${AppRoutes.keuanganUpdate}/${record.id}');
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  tooltip: 'Hapus',
+                  onPressed: () {
+                    _confirmDelete(context, record.id);
+                  },
+                ),
+              ],
+            )
+          ],
         ),
       ),
     );
@@ -275,84 +320,6 @@ class _FinancialDashboardPageState extends State<FinancialDashboardPage> {
         ],
       );
       }
-    );
-  }
-
-  void _showExpenseDetailsDialog(BuildContext context, FinancialRecord record) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final currencyFormatter =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-        final dateFormatter = DateFormat('EEEE, d MMMM y', 'id_ID');
-        final navigator = GoRouter.of(ctx);
-
-        return AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
-        title: Text(record.title,
-            style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: ListBody(
-            children: <Widget>[
-              _buildDetailRow('Jumlah:', currencyFormatter.format(record.cost)),
-              if (record.description.isNotEmpty)
-                _buildDetailRow('Deskripsi:', record.description),
-              _buildDetailRow('Tanggal:', dateFormatter.format(record.date)),
-              const SizedBox(height: 15),
-              if (record.notaImg != null && record.notaImg!.isNotEmpty)
-                Center(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.image),
-                    label: const Text('Lihat Nota'),
-                    onPressed: () {
-                      navigator.pop(); 
-                      _showImageDialog(context, record.notaImg!);
-                    },
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.blueGrey),
-            onPressed: () {
-              navigator.pop();
-              navigator.push('${AppRoutes.keuanganUpdate}/${record.id}');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.redAccent),
-            onPressed: () {
-              navigator.pop();
-              _confirmDelete(context, record.id);
-            },
-          ),
-          const Spacer(),
-          TextButton(
-              child: const Text('Tutup'),
-              onPressed: () => navigator.pop()),
-        ],
-      );
-      }
-    );
-  }
-
-  Widget _buildDetailRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: RichText(
-        text: TextSpan(
-          style: GoogleFonts.lato(fontSize: 14, color: Colors.black87),
-          children: [
-            TextSpan(
-                text: '$title ',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            TextSpan(text: value),
-          ],
-        ),
-      ),
     );
   }
 

@@ -85,8 +85,10 @@ class _SaleListPageState extends State<SaleListPage> {
     final bytes = excel.encode();
     if (bytes == null) throw 'Gagal membuat file Excel';
 
-    final directory = await getExternalStorageDirectory();
-    if (directory == null) throw 'Tidak bisa mengakses penyimpanan';
+    final directories = await getExternalStorageDirectories(
+        type: StorageDirectory.downloads);
+    final directory = directories?.first;
+    if (directory == null) throw 'Tidak bisa mengakses folder Downloads';
 
     final fileName =
         'Laporan_Penjualan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
